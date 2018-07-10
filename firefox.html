@@ -1,0 +1,160 @@
+<html>
+<head>
+<meta charset="utf-8">
+<script src="../out/adapter.js"></script>
+<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
+<script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
+<style>
+video {
+  width: 320px;
+}
+</style>
+</head>
+<body>
+<div id="remotes"></div>
+<div class="graph-container" id="loGraph">
+  <canvas id="loCanvas"></canvas>
+</div>
+<div class="graph-container" id="midGraph">
+  <canvas id="midCanvas"></canvas>
+</div>
+<div class="graph-container" id="hiGraph">
+  <canvas id="hiCanvas"></canvas>
+</div>
+<script>
+var lowSeries = new TimelineDataSeries();
+var midSeries = new TimelineDataSeries();
+var hiSeries = new TimelineDataSeries();
+
+var lowGraph = new TimelineGraphView('loGraph', 'loCanvas');
+lowGraph.updateEndDate();
+var midGraph = new TimelineGraphView('midGraph', 'midCanvas');
+midGraph.updateEndDate();
+var hiGraph = new TimelineGraphView('hiGraph', 'hiCanvas');
+hiGraph.updateEndDate();
+var lastResult;
+
+var pc = new RTCPeerConnection();
+var pc2 = new RTCPeerConnection();
+pc.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => {
+  var v = document.createElement('video');
+  v.autoplay = true;
+  v.srcObject = e.streams[0];
+  document.getElementById('remotes').appendChild(v);
+};
+let ssrc2track;
+navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
+.then(stream => {
+  const sender = pc.addTrack(stream.getTracks()[0], stream);
+  sender.setParameters({encodings: [
+    {rid: "hi", maxBitrate: 800000},
+    {rid: "mid", maxBitrate: 500000, scaleResolutionDownBy: 2},
+    {rid: "lo", maxBitrate: 150000, scaleResolutionDownBy: 4},
+  ]});
+  return pc.createOffer();
+})
+.then(offer => {
+  const sections = SDPUtils.splitSections(offer.sdp);
+  const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+  const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+  const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
+  let sdp = 'v=0\r\n' +
+    'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+    's=-\r\n' +
+    't=0 0\r\n' +
+    'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+    'a=group:BUNDLE sdparta_0 sdparta_1 sdparta_2\r\n' +
+    'a=msid-semantic:WMS *\r\n';
+  let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120 121 126 97\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=extmap:6/sendonly urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\na=fmtp:97 profile-level-id=42e01f;level-asymmetry-allowed=1\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=fmtp:121 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-fb:121 nack\r\na=rtcp-fb:121 nack pli\r\na=rtcp-fb:121 ccm fir\r\na=rtcp-fb:121 goog-remb\r\na=rtcp-fb:126 nack\r\na=rtcp-fb:126 nack pli\r\na=rtcp-fb:126 ccm fir\r\na=rtcp-fb:126 goog-remb\r\na=rtcp-fb:97 nack\r\na=rtcp-fb:97 nack pli\r\na=rtcp-fb:97 ccm fir\r\na=rtcp-fb:97 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=rtpmap:121 VP9/90000\r\na=rtpmap:126 H264/90000\r\na=rtpmap:97 H264/90000\r\na=setup:actpass\r\n';
+  sdp += codecs +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=mid:sdparta_0\r\n' +
+      'a=msid:stream1 track1\r\n' +
+      ssrcs[0] + '\r\n';
+  sdp += codecs +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=mid:sdparta_1\r\n' +
+      'a=msid:stream2 track2\r\n' +
+      ssrcs[1] + '\r\n';
+  sdp += codecs +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=mid:sdparta_2\r\n' +
+      'a=msid:stream3 track3\r\n' +
+      ssrcs[2] + '\r\n';
+  ssrc2track = ssrcs.map(line => line.split(' ')[0].split(':')[1]);
+  return Promise.all([
+    pc.setLocalDescription(offer),
+    pc2.setRemoteDescription({type: 'offer', sdp})
+  ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
+  const sections = SDPUtils.splitSections(answer.sdp);
+  const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+  const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+  const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
+  let sdp = 'v=0\r\n' +
+    'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+    's=-\r\n' +
+    't=0 0\r\n' +
+    'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+    'a=group:BUNDLE sdparta_0\r\n' +
+    'a=msid-semantic:WMS *\r\n';
+  let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120\r\nc=IN IP4 0.0.0.0\r\na=recvonly\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=setup:active\r\n';
+  sdp += codecs +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=mid:sdparta_0\r\n';
+  sdp += 'a=rid:hi recv\r\n' +
+    'a=rid:mid recv\r\n' +
+    'a=rid:low recv\r\n' +
+    'a=simulcast: recv rid=hi;mid;low\r\n';
+  return Promise.all([
+    pc2.setLocalDescription(answer),
+    pc.setRemoteDescription({type: 'answer', sdp})
+  ]);
+})
+.then(() => {
+  var v = window.setInterval(function() {
+    pc2.getStats().then(function(res) {
+      res.forEach(function(report) {
+        var bytes;
+        var packets;
+        var now = report.timestamp;
+        if (report.type === 'inbound-rtp') {
+          bytes = report.bytesReceived;
+          if (lastResult && lastResult.get(report.id)) {
+            // calculate bitrate
+            const bitrate = 8 * (bytes - lastResult.get(report.id).bytesReceived) /
+                (now - lastResult.get(report.id).timestamp);
+            const graphId = ssrc2track.indexOf(report.ssrc);
+            if (graphId === 0) {
+              lowSeries.addPoint(now, bitrate);
+              lowGraph.setDataSeries([lowSeries]);
+              lowGraph.updateEndDate();
+            } else if (graphId === 1) {
+              midSeries.addPoint(now, bitrate);
+              midGraph.setDataSeries([midSeries]);
+              midGraph.updateEndDate();
+            } else if (graphId === 2) {
+              hiSeries.addPoint(now, bitrate);
+              hiGraph.setDataSeries([hiSeries]);
+              hiGraph.updateEndDate();
+            }
+          }
+        }
+      });
+      lastResult = res;
+    });
+  }, 3000);
+  console.log(v);
+})
+.catch(e => console.error(e));
+</script>
+</body>
+</html>
