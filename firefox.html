@@ -1,7 +1,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<script src="../out/adapter.js"></script>
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
 <script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
 <script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
 <style>
@@ -48,10 +48,11 @@ let ssrc2track;
 navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
 .then(stream => {
   const sender = pc.addTrack(stream.getTracks()[0], stream);
+  const bitrates = sessionStorage.bitrates ? JSON.parse(sessionStorage.bitrates) : [800000, 500000, 150000];
   sender.setParameters({encodings: [
-    {rid: "hi", maxBitrate: 800000},
-    {rid: "mid", maxBitrate: 500000, scaleResolutionDownBy: 2},
-    {rid: "lo", maxBitrate: 150000, scaleResolutionDownBy: 4},
+    {rid: "hi", maxBitrate: bitrates[0]},
+    {rid: "mid", maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
+    {rid: "lo", maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
   ]});
   return pc.createOffer();
 })
