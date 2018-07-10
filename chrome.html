@@ -1,0 +1,159 @@
+<html>
+<head>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="https://rawgit.com/fippo/sdp/master/sdp.js"></script>
+    <script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
+    <style>
+        video {
+            width: 320px;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div id="remoteVideos">
+        <video id="low" autoplay muted></video>
+        <video id="mid" autoplay muted></video>
+        <video id="hi" autoplay muted></video>
+    </div>
+    <div class="graph-container" id="loGraph">
+      <canvas id="loCanvas"></canvas>
+    </div>
+    <div class="graph-container" id="midGraph">
+      <canvas id="midCanvas"></canvas>
+    </div>
+    <div class="graph-container" id="hiGraph">
+      <canvas id="hiCanvas"></canvas>
+    </div>
+</div>
+
+<script>
+var lowSeries = new TimelineDataSeries();
+var midSeries = new TimelineDataSeries();
+var hiSeries = new TimelineDataSeries();
+
+var lowGraph = new TimelineGraphView('loGraph', 'loCanvas');
+lowGraph.updateEndDate();
+var midGraph = new TimelineGraphView('midGraph', 'midCanvas');
+midGraph.updateEndDate();
+var hiGraph = new TimelineGraphView('hiGraph', 'hiCanvas');
+hiGraph.updateEndDate();
+var lastResult;
+var pc1 = new RTCPeerConnection();
+var pc2 = new RTCPeerConnection();
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => {
+    document.getElementById(e.track.id).srcObject = e.streams[0];
+};
+
+navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
+.then((stream) => {
+    pc1.addStream(stream);
+    return pc2.createOffer({offerToReceiveVideo: true});
+})
+.then(offer => {
+    /*
+    var offer2 = {
+        type: 'offer',
+        sdp: offer.sdp,
+    }
+    offer2.sdp = offer.sdp.replace('96 97 98 99 100 101 102 124 127 123 125',
+        '96');
+    offer2.sdp = offer2.sdp.replace('a=rtpmap:97 rtx/90000\r\na=fmtp:97 apt=96\r\na=rtpmap:98 VP9/90000\r\na=rtcp-fb:98 goog-remb\r\na=rtcp-fb:98 transport-cc\r\na=rtcp-fb:98 ccm fir\r\na=rtcp-fb:98 nack\r\na=rtcp-fb:98 nack pli\r\na=rtpmap:99 rtx/90000\r\na=fmtp:99 apt=98\r\na=rtpmap:100 H264/90000\r\na=rtcp-fb:100 goog-remb\r\na=rtcp-fb:100 transport-cc\r\na=rtcp-fb:100 ccm fir\r\na=rtcp-fb:100 nack\r\na=rtcp-fb:100 nack pli\r\na=fmtp:100 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\na=rtpmap:101 rtx/90000\r\na=fmtp:101 apt=100\r\na=rtpmap:102 H264/90000\r\na=rtcp-fb:102 goog-remb\r\na=rtcp-fb:102 transport-cc\r\na=rtcp-fb:102 ccm fir\r\na=rtcp-fb:102 nack\r\na=rtcp-fb:102 nack pli\r\na=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\r\na=rtpmap:124 rtx/90000\r\na=fmtp:124 apt=102\r\na=rtpmap:127 red/90000\r\na=rtpmap:123 rtx/90000\r\na=fmtp:123 apt=127\r\na=rtpmap:125 ulpfec/90000\r\n', '');
+    */
+    return Promise.all([
+        pc2.setLocalDescription(offer),
+        pc1.setRemoteDescription(offer)
+    ]);
+})
+.then(() => pc1.createAnswer())
+.then(answer => {
+    var videoPart = SDPUtils.getMediaSections(answer.sdp)[0];
+    var match = videoPart.match(/a=ssrc:(\d+) cname:(.*)\r\n/);
+    var msid = videoPart.match(/a=ssrc:(\d+) msid:(.*)\r\n/);
+    var lines = answer.sdp.trim().split('\r\n');
+    var removed = lines.splice(lines.length - 4, 4);
+    var videoSSRC1 = parseInt(match[1]);
+    var rtxSSRC1 = SDPUtils.matchPrefix(videoPart, 'a=ssrc-group:FID ')[0].split(' ')[2];
+    var videoSSRC2 = videoSSRC1 + 1;
+    var rtxSSRC2 = videoSSRC1 + 2;
+    var videoSSRC3 = videoSSRC1 + 3;
+    var rtxSSRC3 = videoSSRC1 + 4;
+    lines.push(removed[0]);
+    lines.push(removed[1]);
+    lines.push('a=ssrc:' + videoSSRC2 + ' cname:' + match[2]);
+    lines.push('a=ssrc:' + videoSSRC2 + ' msid:' + msid[2]);
+    lines.push('a=ssrc:' + rtxSSRC2 + ' cname:' + match[2]);
+    lines.push('a=ssrc:' + rtxSSRC2 + ' msid:' + msid[2]);
+
+    lines.push('a=ssrc:' + videoSSRC3 + ' cname:' + match[2]);
+    lines.push('a=ssrc:' + videoSSRC3 + ' msid:' + msid[2]);
+    lines.push('a=ssrc:' + rtxSSRC3 + ' cname:' + match[2]);
+    lines.push('a=ssrc:' + rtxSSRC3 + ' msid:' + msid[2]);
+
+    lines.push('a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2);
+    lines.push('a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3);
+    lines.push('a=ssrc-group:SIM ' + videoSSRC1 + ' ' + videoSSRC2 + ' ' + videoSSRC3);
+    answer.sdp = lines.join('\r\n') + '\r\n';
+
+    var answer2 = {
+        type: 'answer',
+        sdp: answer.sdp,
+    };
+    answer2.sdp = answer2.sdp.replace('a=ssrc-group:SIM ' + videoSSRC1 + ' ' + videoSSRC2 + ' ' + videoSSRC3 + '\r\n', '');
+
+    answer2.sdp = answer2.sdp.replace('a=ssrc:' + videoSSRC1 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC1 + ' msid:low low');
+    answer2.sdp = answer2.sdp.replace('a=ssrc:' + rtxSSRC1 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC1 + ' msid:low low');
+
+    answer2.sdp = answer2.sdp.replace('a=ssrc:' + videoSSRC2 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC2 + ' msid:mid mid');
+    answer2.sdp = answer2.sdp.replace('a=ssrc:' + rtxSSRC2 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC2 + ' msid:mid mid');
+
+    answer2.sdp = answer2.sdp.replace('a=ssrc:' + videoSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC3 + ' msid:hi hi');
+    answer2.sdp = answer2.sdp.replace('a=ssrc:' + rtxSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC3 + ' msid:hi hi');
+    return Promise.all([
+        pc1.setLocalDescription(answer),
+        pc2.setRemoteDescription(answer2),
+    ]);
+})
+.then(function() {
+    window.setInterval(() => {
+        pc2.getStats(null).then(function(res) {
+            res.forEach(function(report) {
+                var bytes;
+                var now = report.timestamp;
+                if (report.type === 'inbound-rtp' && report.mediaType === "video") {
+                    bytes = report.bytesReceived;
+                    console.log(report);
+                    if (lastResult && lastResult.get(report.id)) {
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
+                            (now - lastResult.get(report.id).timestamp);
+
+                        const track = res.get(report.trackId).trackIdentifier;
+                        if (track === 'low') {
+                          lowSeries.addPoint(now, bitrate);
+                          lowGraph.setDataSeries([lowSeries]);
+                          lowGraph.updateEndDate();
+                        } else if (track === 'mid') {
+                          midSeries.addPoint(now, bitrate);
+                          midGraph.setDataSeries([midSeries]);
+                          midGraph.updateEndDate();
+                        } else if (track === 'hi') {
+                          hiSeries.addPoint(now, bitrate);
+                          hiGraph.setDataSeries([hiSeries]);
+                          hiGraph.updateEndDate();
+                        }
+                    }
+                }
+            });
+            lastResult = res;
+        });
+    }, 2000);
+})
+.catch(function(err) {
+    console.log('nay', err);
+});
+</script>
+</body>
+</html>
