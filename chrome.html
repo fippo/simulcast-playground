@@ -23,14 +23,15 @@ pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
   var id = e.streams[0].id;
 
+  var container = document.createElement('div');
+  container.id = id + 'Container';
+  document.getElementById('remotes').appendChild(container);
+
   var v = document.createElement('video');
   v.autoplay = true;
   v.srcObject = e.streams[0];
-
-  var container = document.createElement('div');
-  container.id = id + 'Container';
+  v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
   container.appendChild(v);
-  document.getElementById('remotes').appendChild(container);
 
   var canvas = document.createElement('canvas');
   canvas.id = id + 'Canvas';
