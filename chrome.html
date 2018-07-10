@@ -46,21 +46,14 @@ pc2.ontrack = (e) => {
 
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
-    pc1.addStream(stream);
-    return pc2.createOffer({offerToReceiveVideo: true});
+    pc1.addTrack(stream.getVideoTracks()[0], stream);
+    return pc1.createOffer();
 })
-.then(offer => {
-    return Promise.all([
-        pc2.setLocalDescription(offer),
-        pc1.setRemoteDescription(offer)
-    ]);
-})
-.then(() => pc1.createAnswer())
-.then(answer => {
-    var videoPart = SDPUtils.getMediaSections(answer.sdp)[0];
+.then((offer) => {
+    var videoPart = SDPUtils.getMediaSections(offer.sdp)[0];
     var match = videoPart.match(/a=ssrc:(\d+) cname:(.*)\r\n/);
     var msid = videoPart.match(/a=ssrc:(\d+) msid:(.*)\r\n/);
-    var lines = answer.sdp.trim().split('\r\n');
+    var lines = offer.sdp.trim().split('\r\n');
     var removed = lines.splice(lines.length - 4, 4);
     var videoSSRC1 = parseInt(match[1]);
     var rtxSSRC1 = SDPUtils.matchPrefix(videoPart, 'a=ssrc-group:FID ')[0].split(' ')[2];
@@ -83,25 +76,32 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     lines.push('a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2);
     lines.push('a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3);
     lines.push('a=ssrc-group:SIM ' + videoSSRC1 + ' ' + videoSSRC2 + ' ' + videoSSRC3);
-    answer.sdp = lines.join('\r\n') + '\r\n';
+    offer.sdp = lines.join('\r\n') + '\r\n';
 
-    var answer2 = {
-        type: 'answer',
-        sdp: answer.sdp,
+    var offer2 = {
+        type: 'offer',
+        sdp: offer.sdp,
     };
-    answer2.sdp = answer2.sdp.replace('a=ssrc-group:SIM ' + videoSSRC1 + ' ' + videoSSRC2 + ' ' + videoSSRC3 + '\r\n', '');
+    offer2.sdp = offer2.sdp.replace('a=ssrc-group:SIM ' + videoSSRC1 + ' ' + videoSSRC2 + ' ' + videoSSRC3 + '\r\n', '');
 
-    answer2.sdp = answer2.sdp.replace('a=ssrc:' + videoSSRC1 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC1 + ' msid:low low');
-    answer2.sdp = answer2.sdp.replace('a=ssrc:' + rtxSSRC1 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC1 + ' msid:low low');
+    offer2.sdp = offer2.sdp.replace('a=ssrc:' + videoSSRC1 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC1 + ' msid:low low');
+    offer2.sdp = offer2.sdp.replace('a=ssrc:' + rtxSSRC1 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC1 + ' msid:low low');
 
-    answer2.sdp = answer2.sdp.replace('a=ssrc:' + videoSSRC2 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC2 + ' msid:mid mid');
-    answer2.sdp = answer2.sdp.replace('a=ssrc:' + rtxSSRC2 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC2 + ' msid:mid mid');
+    offer2.sdp = offer2.sdp.replace('a=ssrc:' + videoSSRC2 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC2 + ' msid:mid mid');
+    offer2.sdp = offer2.sdp.replace('a=ssrc:' + rtxSSRC2 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC2 + ' msid:mid mid');
 
-    answer2.sdp = answer2.sdp.replace('a=ssrc:' + videoSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC3 + ' msid:hi hi');
-    answer2.sdp = answer2.sdp.replace('a=ssrc:' + rtxSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC3 + ' msid:hi hi');
+    offer2.sdp = offer2.sdp.replace('a=ssrc:' + videoSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + videoSSRC3 + ' msid:hi hi');
+    offer2.sdp = offer2.sdp.replace('a=ssrc:' + rtxSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC3 + ' msid:hi hi');
     return Promise.all([
-        pc1.setLocalDescription(answer),
-        pc2.setRemoteDescription(answer2),
+        pc1.setLocalDescription(offer),
+        pc2.setRemoteDescription(offer2),
+    ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
+    return Promise.all([
+        pc2.setLocalDescription(answer),
+        pc1.setRemoteDescription(answer),
     ]);
 })
 .then(function() {
