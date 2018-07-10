@@ -1,50 +1,46 @@
 <html>
 <head>
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-    <script src="https://rawgit.com/fippo/sdp/master/sdp.js"></script>
-    <script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
-    <style>
-        video {
-            width: 320px;
-        }
-    </style>
+<meta charset="utf-8">
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
+<script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
+<style>
+video {
+  width: 320px;
+}
+</style>
 </head>
 <body>
-<div>
-    <div id="remoteVideos">
-        <video id="low" autoplay muted></video>
-        <video id="mid" autoplay muted></video>
-        <video id="hi" autoplay muted></video>
-    </div>
-    <div class="graph-container" id="loGraph">
-      <canvas id="loCanvas"></canvas>
-    </div>
-    <div class="graph-container" id="midGraph">
-      <canvas id="midCanvas"></canvas>
-    </div>
-    <div class="graph-container" id="hiGraph">
-      <canvas id="hiCanvas"></canvas>
-    </div>
-</div>
-
+<div id="remotes"></div>
 <script>
-var lowSeries = new TimelineDataSeries();
-var midSeries = new TimelineDataSeries();
-var hiSeries = new TimelineDataSeries();
-
-var lowGraph = new TimelineGraphView('loGraph', 'loCanvas');
-lowGraph.updateEndDate();
-var midGraph = new TimelineGraphView('midGraph', 'midCanvas');
-midGraph.updateEndDate();
-var hiGraph = new TimelineGraphView('hiGraph', 'hiCanvas');
-hiGraph.updateEndDate();
-var lastResult;
-var pc1 = new RTCPeerConnection();
-var pc2 = new RTCPeerConnection();
+const series = {};
+const graphs = {};
+let lastResult;
+const pc1 = new RTCPeerConnection();
+const pc2 = new RTCPeerConnection();
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
-    document.getElementById(e.track.id).srcObject = e.streams[0];
+  var id = e.streams[0].id;
+
+  var v = document.createElement('video');
+  v.autoplay = true;
+  v.srcObject = e.streams[0];
+
+  var container = document.createElement('div');
+  container.id = id + 'Container';
+  container.appendChild(v);
+  document.getElementById('remotes').appendChild(container);
+
+  var canvas = document.createElement('canvas');
+  canvas.id = id + 'Canvas';
+  container.appendChild(canvas);
+
+  var graph = new TimelineGraphView(id + 'Container', id + 'Canvas');
+  graph.updateEndDate();
+
+  series[id] = new TimelineDataSeries();
+  graphs[id] = graph;
 };
 
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
@@ -53,15 +49,6 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     return pc2.createOffer({offerToReceiveVideo: true});
 })
 .then(offer => {
-    /*
-    var offer2 = {
-        type: 'offer',
-        sdp: offer.sdp,
-    }
-    offer2.sdp = offer.sdp.replace('96 97 98 99 100 101 102 124 127 123 125',
-        '96');
-    offer2.sdp = offer2.sdp.replace('a=rtpmap:97 rtx/90000\r\na=fmtp:97 apt=96\r\na=rtpmap:98 VP9/90000\r\na=rtcp-fb:98 goog-remb\r\na=rtcp-fb:98 transport-cc\r\na=rtcp-fb:98 ccm fir\r\na=rtcp-fb:98 nack\r\na=rtcp-fb:98 nack pli\r\na=rtpmap:99 rtx/90000\r\na=fmtp:99 apt=98\r\na=rtpmap:100 H264/90000\r\na=rtcp-fb:100 goog-remb\r\na=rtcp-fb:100 transport-cc\r\na=rtcp-fb:100 ccm fir\r\na=rtcp-fb:100 nack\r\na=rtcp-fb:100 nack pli\r\na=fmtp:100 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\na=rtpmap:101 rtx/90000\r\na=fmtp:101 apt=100\r\na=rtpmap:102 H264/90000\r\na=rtcp-fb:102 goog-remb\r\na=rtcp-fb:102 transport-cc\r\na=rtcp-fb:102 ccm fir\r\na=rtcp-fb:102 nack\r\na=rtcp-fb:102 nack pli\r\na=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\r\na=rtpmap:124 rtx/90000\r\na=fmtp:124 apt=102\r\na=rtpmap:127 red/90000\r\na=rtpmap:123 rtx/90000\r\na=fmtp:123 apt=127\r\na=rtpmap:125 ulpfec/90000\r\n', '');
-    */
     return Promise.all([
         pc2.setLocalDescription(offer),
         pc1.setRemoteDescription(offer)
@@ -122,28 +109,18 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             res.forEach(function(report) {
                 var bytes;
                 var now = report.timestamp;
-                if (report.type === 'inbound-rtp' && report.mediaType === "video") {
+                if (report.type === 'inbound-rtp') {
                     bytes = report.bytesReceived;
-                    console.log(report);
                     if (lastResult && lastResult.get(report.id)) {
                         // calculate bitrate
                         const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
                             (now - lastResult.get(report.id).timestamp);
 
                         const track = res.get(report.trackId).trackIdentifier;
-                        if (track === 'low') {
-                          lowSeries.addPoint(now, bitrate);
-                          lowGraph.setDataSeries([lowSeries]);
-                          lowGraph.updateEndDate();
-                        } else if (track === 'mid') {
-                          midSeries.addPoint(now, bitrate);
-                          midGraph.setDataSeries([midSeries]);
-                          midGraph.updateEndDate();
-                        } else if (track === 'hi') {
-                          hiSeries.addPoint(now, bitrate);
-                          hiGraph.setDataSeries([hiSeries]);
-                          hiGraph.updateEndDate();
-                        }
+                        const graphName = track;
+                        series[graphName].addPoint(now, bitrate);
+                        graphs[graphName].setDataSeries([series[graphName]]);
+                        graphs[graphName].updateEndDate();
                     }
                 }
             });

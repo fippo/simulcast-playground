@@ -12,39 +12,39 @@ video {
 </head>
 <body>
 <div id="remotes"></div>
-<div class="graph-container" id="loGraph">
-  <canvas id="loCanvas"></canvas>
-</div>
-<div class="graph-container" id="midGraph">
-  <canvas id="midCanvas"></canvas>
-</div>
-<div class="graph-container" id="hiGraph">
-  <canvas id="hiCanvas"></canvas>
-</div>
 <script>
-var lowSeries = new TimelineDataSeries();
-var midSeries = new TimelineDataSeries();
-var hiSeries = new TimelineDataSeries();
+const series = {};
+const graphs = {};
+let lastResult;
+let ssrc2track;
 
-var lowGraph = new TimelineGraphView('loGraph', 'loCanvas');
-lowGraph.updateEndDate();
-var midGraph = new TimelineGraphView('midGraph', 'midCanvas');
-midGraph.updateEndDate();
-var hiGraph = new TimelineGraphView('hiGraph', 'hiCanvas');
-hiGraph.updateEndDate();
-var lastResult;
-
-var pc = new RTCPeerConnection();
-var pc2 = new RTCPeerConnection();
+const pc = new RTCPeerConnection();
+const pc2 = new RTCPeerConnection();
 pc.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
-  var v = document.createElement('video');
+  const id = e.streams[0].id;
+
+  const v = document.createElement('video');
   v.autoplay = true;
   v.srcObject = e.streams[0];
-  document.getElementById('remotes').appendChild(v);
+
+  const container = document.createElement('div');
+  container.id = id + 'Container';
+  container.appendChild(v);
+  document.getElementById('remotes').appendChild(container);
+
+  const canvas = document.createElement('canvas');
+  canvas.id = id + 'Canvas';
+  container.appendChild(canvas);
+
+  const graph = new TimelineGraphView(id + 'Container', id + 'Canvas');
+  graph.updateEndDate();
+
+  series[id] = new TimelineDataSeries();
+  graphs[id] = graph;
 };
-let ssrc2track;
+
 navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
 .then(stream => {
   const sender = pc.addTrack(stream.getTracks()[0], stream);
@@ -73,19 +73,19 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=mid:sdparta_0\r\n' +
-      'a=msid:stream1 track1\r\n' +
+      'a=msid:low low\r\n' +
       ssrcs[0] + '\r\n';
   sdp += codecs +
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=mid:sdparta_1\r\n' +
-      'a=msid:stream2 track2\r\n' +
+      'a=msid:mid mid\r\n' +
       ssrcs[1] + '\r\n';
   sdp += codecs +
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=mid:sdparta_2\r\n' +
-      'a=msid:stream3 track3\r\n' +
+      'a=msid:hi hi\r\n' +
       ssrcs[2] + '\r\n';
   ssrc2track = ssrcs.map(line => line.split(' ')[0].split(':')[1]);
   return Promise.all([
@@ -134,19 +134,10 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
             const bitrate = 8 * (bytes - lastResult.get(report.id).bytesReceived) /
                 (now - lastResult.get(report.id).timestamp);
             const graphId = ssrc2track.indexOf(report.ssrc);
-            if (graphId === 0) {
-              lowSeries.addPoint(now, bitrate);
-              lowGraph.setDataSeries([lowSeries]);
-              lowGraph.updateEndDate();
-            } else if (graphId === 1) {
-              midSeries.addPoint(now, bitrate);
-              midGraph.setDataSeries([midSeries]);
-              midGraph.updateEndDate();
-            } else if (graphId === 2) {
-              hiSeries.addPoint(now, bitrate);
-              hiGraph.setDataSeries([hiSeries]);
-              hiGraph.updateEndDate();
-            }
+            const graphName = ['low', 'mid', 'hi'][graphId];
+            series[graphName].addPoint(now, bitrate);
+            graphs[graphName].setDataSeries([series[graphName]]);
+            graphs[graphName].updateEndDate();
           }
         }
       });
