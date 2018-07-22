@@ -24,39 +24,39 @@ const pc2 = new RTCPeerConnection();
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
-  const id = e.streams[0].id;
+    const id = e.streams[0].id;
 
-  const container = document.createElement('div');
-  container.id = id + 'Container';
-  document.getElementById('remotes').appendChild(container);
+    const container = document.createElement('div');
+    container.id = id + 'Container';
+    document.getElementById('remotes').appendChild(container);
 
-  const v = document.createElement('video');
-  v.autoplay = true;
-  v.srcObject = e.streams[0];
-  v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
-  container.appendChild(v);
+    const v = document.createElement('video');
+    v.autoplay = true;
+    v.srcObject = e.streams[0];
+    v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
+    container.appendChild(v);
 
-  const bitrateCanvas = document.createElement('canvas');
-  bitrateCanvas.id = id + 'BitrateCanvas';
-  bitrateCanvas.title = 'Bitrate';
-  container.appendChild(bitrateCanvas);
+    const bitrateCanvas = document.createElement('canvas');
+    bitrateCanvas.id = id + 'BitrateCanvas';
+    bitrateCanvas.title = 'Bitrate';
+    container.appendChild(bitrateCanvas);
 
-  const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
-  bitrateGraph.updateEndDate();
+    const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+    bitrateGraph.updateEndDate();
 
-  bitrateSeries[id] = new TimelineDataSeries();
-  bitrateGraphs[id] = bitrateGraph;
+    bitrateSeries[id] = new TimelineDataSeries();
+    bitrateGraphs[id] = bitrateGraph;
 
-  const framerateCanvas = document.createElement('canvas');
-  framerateCanvas.id = id + 'FramerateCanvas';
-  framerateCanvas.title = 'Framerate';
-  container.appendChild(framerateCanvas);
+    const framerateCanvas = document.createElement('canvas');
+    framerateCanvas.id = id + 'FramerateCanvas';
+    framerateCanvas.title = 'Framerate';
+    container.appendChild(framerateCanvas);
 
-  const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
-  framerateGraph.updateEndDate();
+    const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+    framerateGraph.updateEndDate();
 
-  framerateSeries[id] = new TimelineDataSeries();
-  framerateGraphs[id] = framerateGraph;
+    framerateSeries[id] = new TimelineDataSeries();
+    framerateGraphs[id] = framerateGraph;
 };
 
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
@@ -121,8 +121,8 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 })
 .then(function() {
     window.setInterval(() => {
-        pc2.getStats(null).then(function(res) {
-            res.forEach(function(report) {
+        pc2.getStats(null).then((res) => {
+            res.forEach((report) => {
                 const now = report.timestamp;
                 if (report.type === 'inbound-rtp') {
                     const bytes = report.bytesReceived;
@@ -151,9 +151,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         });
     }, 2000);
 })
-.catch(function(err) {
-    console.log('nay', err);
-});
+.catch(e => console.error(e));
 </script>
 </body>
 </html>

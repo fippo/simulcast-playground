@@ -25,148 +25,148 @@ const pc2 = new RTCPeerConnection();
 pc.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
-  const id = e.streams[0].id;
+    const id = e.streams[0].id;
 
-  const container = document.createElement('div');
-  container.id = id + 'Container';
-  document.getElementById('remotes').appendChild(container);
+    const container = document.createElement('div');
+    container.id = id + 'Container';
+    document.getElementById('remotes').appendChild(container);
 
-  const v = document.createElement('video');
-  v.autoplay = true;
-  v.srcObject = e.streams[0];
-  v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
-  container.appendChild(v);
+    const v = document.createElement('video');
+    v.autoplay = true;
+    v.srcObject = e.streams[0];
+    v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
+    container.appendChild(v);
 
-  const bitrateCanvas = document.createElement('canvas');
-  bitrateCanvas.id = id + 'BitrateCanvas';
-  bitrateCanvas.title = 'Bitrate';
-  container.appendChild(bitrateCanvas);
+    const bitrateCanvas = document.createElement('canvas');
+    bitrateCanvas.id = id + 'BitrateCanvas';
+    bitrateCanvas.title = 'Bitrate';
+    container.appendChild(bitrateCanvas);
 
-  const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
-  bitrateGraph.updateEndDate();
+    const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+    bitrateGraph.updateEndDate();
 
-  bitrateSeries[id] = new TimelineDataSeries();
-  bitrateGraphs[id] = bitrateGraph;
+    bitrateSeries[id] = new TimelineDataSeries();
+    bitrateGraphs[id] = bitrateGraph;
 
-  const framerateCanvas = document.createElement('canvas');
-  framerateCanvas.id = id + 'FramerateCanvas';
-  framerateCanvas.title = 'Framerate';
-  container.appendChild(framerateCanvas);
+    const framerateCanvas = document.createElement('canvas');
+    framerateCanvas.id = id + 'FramerateCanvas';
+    framerateCanvas.title = 'Framerate';
+    container.appendChild(framerateCanvas);
 
-  const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
-  framerateGraph.updateEndDate();
+    const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+    framerateGraph.updateEndDate();
 
-  framerateSeries[id] = new TimelineDataSeries();
-  framerateGraphs[id] = framerateGraph;
+    framerateSeries[id] = new TimelineDataSeries();
+    framerateGraphs[id] = framerateGraph;
 };
 
 navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
 .then(stream => {
-  const sender = pc.addTrack(stream.getTracks()[0], stream);
-  const bitrates = sessionStorage.bitrates ? JSON.parse(sessionStorage.bitrates) : [800000, 500000, 150000];
-  sender.setParameters({encodings: [
-    {rid: "hi", maxBitrate: bitrates[0]},
-    {rid: "mid", maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
-    {rid: "lo", maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
-  ]});
-  return pc.createOffer();
+    const sender = pc.addTrack(stream.getTracks()[0], stream);
+    const bitrates = sessionStorage.bitrates ? JSON.parse(sessionStorage.bitrates) : [800000, 500000, 150000];
+    sender.setParameters({encodings: [
+        {rid: "hi", maxBitrate: bitrates[0]},
+        {rid: "mid", maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
+        {rid: "lo", maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
+    ]});
+    return pc.createOffer();
 })
 .then(offer => {
-  const sections = SDPUtils.splitSections(offer.sdp);
-  const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
-  const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
-  const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
-  let sdp = 'v=0\r\n' +
-    'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-    's=-\r\n' +
-    't=0 0\r\n' +
-    'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
-    'a=group:BUNDLE sdparta_0 sdparta_1 sdparta_2\r\n' +
-    'a=msid-semantic:WMS *\r\n';
-  let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120 121 126 97\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=extmap:6/sendonly urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\na=fmtp:97 profile-level-id=42e01f;level-asymmetry-allowed=1\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=fmtp:121 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-fb:121 nack\r\na=rtcp-fb:121 nack pli\r\na=rtcp-fb:121 ccm fir\r\na=rtcp-fb:121 goog-remb\r\na=rtcp-fb:126 nack\r\na=rtcp-fb:126 nack pli\r\na=rtcp-fb:126 ccm fir\r\na=rtcp-fb:126 goog-remb\r\na=rtcp-fb:97 nack\r\na=rtcp-fb:97 nack pli\r\na=rtcp-fb:97 ccm fir\r\na=rtcp-fb:97 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=rtpmap:121 VP9/90000\r\na=rtpmap:126 H264/90000\r\na=rtpmap:97 H264/90000\r\na=setup:actpass\r\n';
-  sdp += codecs +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
-      'a=mid:sdparta_0\r\n' +
-      'a=msid:low low\r\n' +
-      ssrcs[0] + '\r\n';
-  sdp += codecs +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
-      'a=mid:sdparta_1\r\n' +
-      'a=msid:mid mid\r\n' +
-      ssrcs[1] + '\r\n';
-  sdp += codecs +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
-      'a=mid:sdparta_2\r\n' +
-      'a=msid:hi hi\r\n' +
-      ssrcs[2] + '\r\n';
-  ssrc2track = ssrcs.map(line => line.split(' ')[0].split(':')[1]);
-  return Promise.all([
-    pc.setLocalDescription(offer),
-    pc2.setRemoteDescription({type: 'offer', sdp})
-  ]);
+    const sections = SDPUtils.splitSections(offer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
+    let sdp = 'v=0\r\n' +
+      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+      's=-\r\n' +
+      't=0 0\r\n' +
+      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=group:BUNDLE sdparta_0 sdparta_1 sdparta_2\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120 121 126 97\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=extmap:6/sendonly urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\na=fmtp:97 profile-level-id=42e01f;level-asymmetry-allowed=1\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=fmtp:121 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-fb:121 nack\r\na=rtcp-fb:121 nack pli\r\na=rtcp-fb:121 ccm fir\r\na=rtcp-fb:121 goog-remb\r\na=rtcp-fb:126 nack\r\na=rtcp-fb:126 nack pli\r\na=rtcp-fb:126 ccm fir\r\na=rtcp-fb:126 goog-remb\r\na=rtcp-fb:97 nack\r\na=rtcp-fb:97 nack pli\r\na=rtcp-fb:97 ccm fir\r\na=rtcp-fb:97 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=rtpmap:121 VP9/90000\r\na=rtpmap:126 H264/90000\r\na=rtpmap:97 H264/90000\r\na=setup:actpass\r\n';
+    sdp += codecs +
+        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+        'a=ice-pwd:' + ice.password + '\r\n' +
+        'a=mid:sdparta_0\r\n' +
+        'a=msid:low low\r\n' +
+        ssrcs[0] + '\r\n';
+    sdp += codecs +
+        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+        'a=ice-pwd:' + ice.password + '\r\n' +
+        'a=mid:sdparta_1\r\n' +
+        'a=msid:mid mid\r\n' +
+        ssrcs[1] + '\r\n';
+    sdp += codecs +
+        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+        'a=ice-pwd:' + ice.password + '\r\n' +
+        'a=mid:sdparta_2\r\n' +
+        'a=msid:hi hi\r\n' +
+        ssrcs[2] + '\r\n';
+    ssrc2track = ssrcs.map(line => line.split(' ')[0].split(':')[1]);
+    return Promise.all([
+        pc.setLocalDescription(offer),
+        pc2.setRemoteDescription({type: 'offer', sdp})
+    ]);
 })
 .then(() => pc2.createAnswer())
 .then(answer => {
-  const sections = SDPUtils.splitSections(answer.sdp);
-  const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
-  const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
-  const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
-  let sdp = 'v=0\r\n' +
-    'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-    's=-\r\n' +
-    't=0 0\r\n' +
-    'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
-    'a=group:BUNDLE sdparta_0\r\n' +
-    'a=msid-semantic:WMS *\r\n';
-  let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120\r\nc=IN IP4 0.0.0.0\r\na=recvonly\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=setup:active\r\n';
-  sdp += codecs +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
-      'a=mid:sdparta_0\r\n';
-  sdp += 'a=rid:hi recv\r\n' +
-    'a=rid:mid recv\r\n' +
-    'a=rid:low recv\r\n' +
-    'a=simulcast: recv rid=hi;mid;low\r\n';
-  return Promise.all([
-    pc2.setLocalDescription(answer),
-    pc.setRemoteDescription({type: 'answer', sdp})
-  ]);
+    const sections = SDPUtils.splitSections(answer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
+    let sdp = 'v=0\r\n' +
+      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+      's=-\r\n' +
+      't=0 0\r\n' +
+      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=group:BUNDLE sdparta_0\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120\r\nc=IN IP4 0.0.0.0\r\na=recvonly\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=setup:active\r\n';
+    sdp += codecs +
+        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+        'a=ice-pwd:' + ice.password + '\r\n' +
+        'a=mid:sdparta_0\r\n';
+    sdp += 'a=rid:hi recv\r\n' +
+      'a=rid:mid recv\r\n' +
+      'a=rid:low recv\r\n' +
+      'a=simulcast: recv rid=hi;mid;low\r\n';
+    return Promise.all([
+        pc2.setLocalDescription(answer),
+        pc.setRemoteDescription({type: 'answer', sdp})
+    ]);
 })
 .then(() => {
-  window.setInterval(function() {
-    pc2.getStats().then(function(res) {
-      res.forEach(function(report) {
-        const now = report.timestamp;
-        if (report.type === 'inbound-rtp') {
-          const bytes = report.bytesReceived;
-          const frames = report.framesDecoded;
-          if (lastResult && lastResult.get(report.id)) {
-            const graphId = ssrc2track.indexOf(report.ssrc);
-            const graphName = ['low', 'mid', 'hi'][graphId];
+    window.setInterval(() => {
+        pc2.getStats().then((res) => {
+            res.forEach((report) => {
+                const now = report.timestamp;
+                if (report.type === 'inbound-rtp') {
+                    const bytes = report.bytesReceived;
+                    const frames = report.framesDecoded;
+                    if (lastResult && lastResult.get(report.id)) {
+                        const graphId = ssrc2track.indexOf(report.ssrc);
+                        const graphName = ['low', 'mid', 'hi'][graphId];
 
-            // calculate bitrate
-            const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
-                (now - lastResult.get(report.id).timestamp);
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
+                            (now - lastResult.get(report.id).timestamp);
 
-            bitrateSeries[graphName].addPoint(now, bitrate);
-            bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
-            bitrateGraphs[graphName].updateEndDate();
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
 
-            //  calculate framerate.
-            const framerate = 1000 * (frames - lastResult.get(report.id).framesDecoded) /
-                (now - lastResult.get(report.id).timestamp);
-            framerateSeries[graphName].addPoint(now, framerate);
-            framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
-            framerateGraphs[graphName].updateEndDate();
-          }
-        }
-      });
-      lastResult = res;
-    });
-  }, 2000);
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastResult.get(report.id).framesDecoded) /
+                            (now - lastResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
+                    }
+                }
+            });
+            lastResult = res;
+          });
+    }, 2000);
 })
 .catch(e => console.error(e));
 </script>
