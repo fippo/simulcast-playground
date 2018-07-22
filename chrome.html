@@ -11,7 +11,12 @@ video {
 </style>
 </head>
 <body>
-<div id="remotes"></div>
+<div id="local">
+  <h2>Local Video</h2>
+</div>
+<div id="remotes">
+  <h2>Remote Videos</h2>
+</div>
 <script>
 const bitrateSeries = {};
 const bitrateGraphs = {};
@@ -19,20 +24,16 @@ const framerateSeries = {};
 const framerateGraphs = {};
 let lastResult;
 
-const pc1 = new RTCPeerConnection();
-const pc2 = new RTCPeerConnection();
-pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
-pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
-pc2.ontrack = (e) => {
-    const id = e.streams[0].id;
+function show(stream, isRemote) {
+    const id = stream.id;
 
     const container = document.createElement('div');
     container.id = id + 'Container';
-    document.getElementById('remotes').appendChild(container);
+    document.getElementById(isRemote ? 'remotes' : 'local').appendChild(container);
 
     const v = document.createElement('video');
     v.autoplay = true;
-    v.srcObject = e.streams[0];
+    v.srcObject = stream;
     v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
     container.appendChild(v);
 
@@ -57,11 +58,18 @@ pc2.ontrack = (e) => {
 
     framerateSeries[id] = new TimelineDataSeries();
     framerateGraphs[id] = framerateGraph;
-};
+}
+
+const pc1 = new RTCPeerConnection();
+const pc2 = new RTCPeerConnection();
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => show(e.streams[0], true);
 
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
     pc1.addTrack(stream.getVideoTracks()[0], stream);
+    show(stream, false);
     return pc1.createOffer();
 })
 .then((offer) => {
