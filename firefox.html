@@ -13,8 +13,10 @@ video {
 <body>
 <div id="remotes"></div>
 <script>
-const series = {};
-const graphs = {};
+const bitrateSeries = {};
+const bitrateGraphs = {};
+const framerateSeries = {};
+const framerateGraphs = {};
 let lastResult;
 let ssrc2track;
 
@@ -23,27 +25,39 @@ const pc2 = new RTCPeerConnection();
 pc.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
-  const id = e.streams[0].id;
+  var id = e.streams[0].id;
 
-  const container = document.createElement('div');
+  var container = document.createElement('div');
   container.id = id + 'Container';
   document.getElementById('remotes').appendChild(container);
 
-  const v = document.createElement('video');
+  var v = document.createElement('video');
   v.autoplay = true;
   v.srcObject = e.streams[0];
   v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
   container.appendChild(v);
 
-  const canvas = document.createElement('canvas');
-  canvas.id = id + 'Canvas';
-  container.appendChild(canvas);
+  var bitrateCanvas = document.createElement('canvas');
+  bitrateCanvas.id = id + 'BitrateCanvas';
+  bitrateCanvas.title = 'Bitrate';
+  container.appendChild(bitrateCanvas);
 
-  const graph = new TimelineGraphView(id + 'Container', id + 'Canvas');
-  graph.updateEndDate();
+  var bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+  bitrateGraph.updateEndDate();
 
-  series[id] = new TimelineDataSeries();
-  graphs[id] = graph;
+  bitrateSeries[id] = new TimelineDataSeries();
+  bitrateGraphs[id] = bitrateGraph;
+
+  var framerateCanvas = document.createElement('canvas');
+  framerateCanvas.id = id + 'FramerateCanvas';
+  framerateCanvas.title = 'Framerate';
+  container.appendChild(framerateCanvas);
+
+  var framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+  framerateGraph.updateEndDate();
+
+  framerateSeries[id] = new TimelineDataSeries();
+  framerateGraphs[id] = framerateGraph;
 };
 
 navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
@@ -122,30 +136,37 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
   ]);
 })
 .then(() => {
-  var v = window.setInterval(function() {
+  window.setInterval(function() {
     pc2.getStats().then(function(res) {
       res.forEach(function(report) {
-        var bytes;
-        var packets;
-        var now = report.timestamp;
+        const now = report.timestamp;
         if (report.type === 'inbound-rtp') {
-          bytes = report.bytesReceived;
+          const bytes = report.bytesReceived;
+          const frames = report.framesDecoded;
           if (lastResult && lastResult.get(report.id)) {
-            // calculate bitrate
-            const bitrate = 8 * (bytes - lastResult.get(report.id).bytesReceived) /
-                (now - lastResult.get(report.id).timestamp);
             const graphId = ssrc2track.indexOf(report.ssrc);
             const graphName = ['low', 'mid', 'hi'][graphId];
-            series[graphName].addPoint(now, bitrate);
-            graphs[graphName].setDataSeries([series[graphName]]);
-            graphs[graphName].updateEndDate();
+
+            // calculate bitrate
+            const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
+                (now - lastResult.get(report.id).timestamp);
+
+            bitrateSeries[graphName].addPoint(now, bitrate);
+            bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+            bitrateGraphs[graphName].updateEndDate();
+
+            //  calculate framerate.
+            const framerate = 1000 * (frames - lastResult.get(report.id).framesDecoded) /
+                (now - lastResult.get(report.id).timestamp);
+            framerateSeries[graphName].addPoint(now, framerate);
+            framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+            framerateGraphs[graphName].updateEndDate();
           }
         }
       });
       lastResult = res;
     });
-  }, 3000);
-  console.log(v);
+  }, 2000);
 })
 .catch(e => console.error(e));
 </script>

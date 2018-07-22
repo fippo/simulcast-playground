@@ -13,9 +13,12 @@ video {
 <body>
 <div id="remotes"></div>
 <script>
-const series = {};
-const graphs = {};
+const bitrateSeries = {};
+const bitrateGraphs = {};
+const framerateSeries = {};
+const framerateGraphs = {};
 let lastResult;
+
 const pc1 = new RTCPeerConnection();
 const pc2 = new RTCPeerConnection();
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
@@ -33,15 +36,27 @@ pc2.ontrack = (e) => {
   v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
   container.appendChild(v);
 
-  var canvas = document.createElement('canvas');
-  canvas.id = id + 'Canvas';
-  container.appendChild(canvas);
+  var bitrateCanvas = document.createElement('canvas');
+  bitrateCanvas.id = id + 'BitrateCanvas';
+  bitrateCanvas.title = 'Bitrate';
+  container.appendChild(bitrateCanvas);
 
-  var graph = new TimelineGraphView(id + 'Container', id + 'Canvas');
-  graph.updateEndDate();
+  var bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+  bitrateGraph.updateEndDate();
 
-  series[id] = new TimelineDataSeries();
-  graphs[id] = graph;
+  bitrateSeries[id] = new TimelineDataSeries();
+  bitrateGraphs[id] = bitrateGraph;
+
+  var framerateCanvas = document.createElement('canvas');
+  framerateCanvas.id = id + 'FramerateCanvas';
+  framerateCanvas.title = 'Framerate';
+  container.appendChild(framerateCanvas);
+
+  var framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+  framerateGraph.updateEndDate();
+
+  framerateSeries[id] = new TimelineDataSeries();
+  framerateGraphs[id] = framerateGraph;
 };
 
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
@@ -108,20 +123,27 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     window.setInterval(() => {
         pc2.getStats(null).then(function(res) {
             res.forEach(function(report) {
-                var bytes;
-                var now = report.timestamp;
+                const now = report.timestamp;
                 if (report.type === 'inbound-rtp') {
-                    bytes = report.bytesReceived;
+                    const bytes = report.bytesReceived;
+                    const frames = report.framesDecoded;
                     if (lastResult && lastResult.get(report.id)) {
+                        const track = res.get(report.trackId).trackIdentifier;
+                        const graphName = track;
                         // calculate bitrate
                         const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
                             (now - lastResult.get(report.id).timestamp);
 
-                        const track = res.get(report.trackId).trackIdentifier;
-                        const graphName = track;
-                        series[graphName].addPoint(now, bitrate);
-                        graphs[graphName].setDataSeries([series[graphName]]);
-                        graphs[graphName].updateEndDate();
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
+
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastResult.get(report.id).framesDecoded) /
+                            (now - lastResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
                     }
                 }
             });
