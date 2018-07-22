@@ -22,11 +22,12 @@ const bitrateSeries = {};
 const bitrateGraphs = {};
 const framerateSeries = {};
 const framerateGraphs = {};
-let lastResult;
+let lastSendResult;
+let lastRecvResult;
 let ssrc2track;
 
 function show(stream, isRemote) {
-    const id = stream.id;
+    const id = isRemote ? stream.id : 'local';
 
     const container = document.createElement('div');
     container.id = id + 'Container';
@@ -60,23 +61,23 @@ function show(stream, isRemote) {
     framerateSeries[id] = new TimelineDataSeries();
     framerateGraphs[id] = framerateGraph;
 }
-const pc = new RTCPeerConnection();
+const pc1 = new RTCPeerConnection();
 const pc2 = new RTCPeerConnection();
-pc.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
-pc2.onicecandidate = (e) => pc.addIceCandidate(e.candidate);
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => show(e.streams[0], true);
 
 navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
 .then(stream => {
     show(stream, false);
-    const sender = pc.addTrack(stream.getTracks()[0], stream);
+    const sender = pc1.addTrack(stream.getTracks()[0], stream);
     const bitrates = sessionStorage.bitrates ? JSON.parse(sessionStorage.bitrates) : [800000, 500000, 150000];
     sender.setParameters({encodings: [
         {rid: "hi", maxBitrate: bitrates[0]},
         {rid: "mid", maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
         {rid: "lo", maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
     ]});
-    return pc.createOffer();
+    return pc1.createOffer();
 })
 .then(offer => {
     const sections = SDPUtils.splitSections(offer.sdp);
@@ -111,7 +112,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
         ssrcs[2] + '\r\n';
     ssrc2track = ssrcs.map(line => line.split(' ')[0].split(':')[1]);
     return Promise.all([
-        pc.setLocalDescription(offer),
+        pc1.setLocalDescription(offer),
         pc2.setRemoteDescription({type: 'offer', sdp})
     ]);
 })
@@ -139,39 +140,67 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=simulcast: recv rid=hi;mid;low\r\n';
     return Promise.all([
         pc2.setLocalDescription(answer),
-        pc.setRemoteDescription({type: 'answer', sdp})
+        pc1.setRemoteDescription({type: 'answer', sdp})
     ]);
 })
 .then(() => {
     window.setInterval(() => {
-        pc2.getStats().then((res) => {
+        pc1.getStats().then((res) => {
             res.forEach((report) => {
                 const now = report.timestamp;
-                if (report.type === 'inbound-rtp') {
-                    const bytes = report.bytesReceived;
-                    const frames = report.framesDecoded;
-                    if (lastResult && lastResult.get(report.id)) {
-                        const graphId = ssrc2track.indexOf(report.ssrc);
-                        const graphName = ['low', 'mid', 'hi'][graphId];
+                if (report.type === 'outbound-rtp') {
+                    const bytes = report.bytesSent;
+                    const frames = report.framesEncoded;
+                    if (lastSendResult && lastSendResult.get(report.id)) {
+                        const graphName = 'local';
 
                         // calculate bitrate
-                        const bitrate = 8000 * (bytes - lastResult.get(report.id).bytesReceived) /
-                            (now - lastResult.get(report.id).timestamp);
+                        const bitrate = 8000 * (bytes - lastSendResult.get(report.id).bytesSent) /
+                            (now - lastSendResult.get(report.id).timestamp);
 
                         bitrateSeries[graphName].addPoint(now, bitrate);
                         bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
                         bitrateGraphs[graphName].updateEndDate();
 
                         //  calculate framerate.
-                        const framerate = 1000 * (frames - lastResult.get(report.id).framesDecoded) /
-                            (now - lastResult.get(report.id).timestamp);
+                        const framerate = 1000 * (frames - lastSendResult.get(report.id).framesEncoded) /
+                            (now - lastSendResult.get(report.id).timestamp);
                         framerateSeries[graphName].addPoint(now, framerate);
                         framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
                         framerateGraphs[graphName].updateEndDate();
                     }
                 }
             });
-            lastResult = res;
+            lastSendResult = res;
+          });
+        pc2.getStats().then((res) => {
+            res.forEach((report) => {
+                const now = report.timestamp;
+                if (report.type === 'inbound-rtp') {
+                    const bytes = report.bytesReceived;
+                    const frames = report.framesDecoded;
+                    if (lastRecvResult && lastRecvResult.get(report.id)) {
+                        const graphId = ssrc2track.indexOf(report.ssrc);
+                        const graphName = ['low', 'mid', 'hi'][graphId];
+
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastRecvResult.get(report.id).bytesReceived) /
+                            (now - lastRecvResult.get(report.id).timestamp);
+
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
+
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastRecvResult.get(report.id).framesDecoded) /
+                            (now - lastRecvResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
+                    }
+                }
+            });
+            lastRecvResult = res;
           });
     }, 2000);
 })
