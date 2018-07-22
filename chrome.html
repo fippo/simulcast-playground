@@ -24,35 +24,35 @@ const pc2 = new RTCPeerConnection();
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => {
-  var id = e.streams[0].id;
+  const id = e.streams[0].id;
 
-  var container = document.createElement('div');
+  const container = document.createElement('div');
   container.id = id + 'Container';
   document.getElementById('remotes').appendChild(container);
 
-  var v = document.createElement('video');
+  const v = document.createElement('video');
   v.autoplay = true;
   v.srcObject = e.streams[0];
   v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
   container.appendChild(v);
 
-  var bitrateCanvas = document.createElement('canvas');
+  const bitrateCanvas = document.createElement('canvas');
   bitrateCanvas.id = id + 'BitrateCanvas';
   bitrateCanvas.title = 'Bitrate';
   container.appendChild(bitrateCanvas);
 
-  var bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+  const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
   bitrateGraph.updateEndDate();
 
   bitrateSeries[id] = new TimelineDataSeries();
   bitrateGraphs[id] = bitrateGraph;
 
-  var framerateCanvas = document.createElement('canvas');
+  const framerateCanvas = document.createElement('canvas');
   framerateCanvas.id = id + 'FramerateCanvas';
   framerateCanvas.title = 'Framerate';
   container.appendChild(framerateCanvas);
 
-  var framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+  const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
   framerateGraph.updateEndDate();
 
   framerateSeries[id] = new TimelineDataSeries();
