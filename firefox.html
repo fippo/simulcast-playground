@@ -136,8 +136,8 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
         'a=mid:sdparta_0\r\n';
     sdp += 'a=rid:hi recv\r\n' +
       'a=rid:mid recv\r\n' +
-      'a=rid:low recv\r\n' +
-      'a=simulcast: recv rid=hi;mid;low\r\n';
+      'a=rid:lo recv\r\n' +
+      'a=simulcast: recv rid=hi;mid;lo\r\n';
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription({type: 'answer', sdp})
