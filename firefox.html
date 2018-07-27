@@ -110,7 +110,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
         'a=mid:sdparta_2\r\n' +
         'a=msid:hi hi\r\n' +
         ssrcs[2] + '\r\n';
-    ssrc2track = ssrcs.map(line => line.split(' ')[0].split(':')[1]);
+    ssrc2track = ssrcs.map(line => (line.split(' ')[0].split(':')[1] >>> 0));
     return Promise.all([
         pc1.setLocalDescription(offer),
         pc2.setRemoteDescription({type: 'offer', sdp})
@@ -180,7 +180,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
                     const bytes = report.bytesReceived;
                     const frames = report.framesDecoded;
                     if (lastRecvResult && lastRecvResult.get(report.id)) {
-                        const graphId = ssrc2track.indexOf(report.ssrc);
+                        const graphId = ssrc2track.indexOf(report.ssrc >>> 0);
                         const graphName = ['low', 'mid', 'hi'][graphId];
 
                         // calculate bitrate
