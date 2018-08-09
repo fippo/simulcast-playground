@@ -130,10 +130,10 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 })
 .then(function() {
     window.setInterval(() => {
-        pc1.getStats(null).then((res) => {
+        pc1.getSenders()[0].getStats().then((res) => {
             res.forEach((report) => {
-                const now = report.timestamp;
                 if (report.type === 'outbound-rtp') {
+                    const now = report.timestamp;
                     const bytes = report.bytesSent;
                     const frames = report.framesEncoded;
                     if (lastSendResult && lastSendResult.get(report.id)) {
@@ -157,10 +157,10 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             });
             lastSendResult = res;
         });
-        pc2.getStats(null).then((res) => {
+        pc2.getStats().then((res) => {
             res.forEach((report) => {
-                const now = report.timestamp;
                 if (report.type === 'inbound-rtp') {
+                    const now = report.timestamp;
                     const bytes = report.bytesReceived;
                     const frames = report.framesDecoded;
                     if (lastRecvResult && lastRecvResult.get(report.id)) {
