@@ -92,7 +92,39 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
       'a=group:BUNDLE ' + midPrefix + '0 ' + midPrefix + '1 ' + midPrefix + '2\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120 121 126 97\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=extmap:6/sendonly urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\na=fmtp:97 profile-level-id=42e01f;level-asymmetry-allowed=1\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=fmtp:121 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-fb:121 nack\r\na=rtcp-fb:121 nack pli\r\na=rtcp-fb:121 ccm fir\r\na=rtcp-fb:121 goog-remb\r\na=rtcp-fb:126 nack\r\na=rtcp-fb:126 nack pli\r\na=rtcp-fb:126 ccm fir\r\na=rtcp-fb:126 goog-remb\r\na=rtcp-fb:97 nack\r\na=rtcp-fb:97 nack pli\r\na=rtcp-fb:97 ccm fir\r\na=rtcp-fb:97 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=rtpmap:121 VP9/90000\r\na=rtpmap:126 H264/90000\r\na=rtpmap:97 H264/90000\r\na=setup:actpass\r\n';
+    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120 121 126 97\r\n' +
+      'c=IN IP4 0.0.0.0\r\n' +
+      'a=sendrecv\r\n' +
+      'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
+      'a=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n' +
+      'a=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\n' +
+      'a=extmap:6/sendonly urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
+      'a=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\n' +
+      'a=fmtp:97 profile-level-id=42e01f;level-asymmetry-allowed=1\r\n' +
+      'a=fmtp:120 max-fs=12288;max-fr=60\r\n' +
+      'a=fmtp:121 max-fs=12288;max-fr=60\r\n' +
+      'a=rtcp-fb:120 nack\r\n' +
+      'a=rtcp-fb:120 nack pli\r\n' +
+      'a=rtcp-fb:120 ccm fir\r\n' +
+      'a=rtcp-fb:120 goog-remb\r\n' +
+      'a=rtcp-fb:121 nack\r\n' +
+      'a=rtcp-fb:121 nack pli\r\n' +
+      'a=rtcp-fb:121 ccm fir\r\n' +
+      'a=rtcp-fb:121 goog-remb\r\n' +
+      'a=rtcp-fb:126 nack\r\n' +
+      'a=rtcp-fb:126 nack pli\r\n' +
+      'a=rtcp-fb:126 ccm fir\r\n' +
+      'a=rtcp-fb:126 goog-remb\r\n' +
+      'a=rtcp-fb:97 nack\r\n' +
+      'a=rtcp-fb:97 nack pli\r\n' +
+      'a=rtcp-fb:97 ccm fir\r\n' +
+      'a=rtcp-fb:97 goog-remb\r\n' +
+      'a=rtcp-mux\r\n' +
+      'a=rtpmap:120 VP8/90000\r\n' +
+      'a=rtpmap:121 VP9/90000\r\n' +
+      'a=rtpmap:126 H264/90000\r\n' +
+      'a=rtpmap:97 H264/90000\r\n' +
+      'a=setup:actpass\r\n';
     sdp += codecs +
         'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
         'a=ice-pwd:' + ice.password + '\r\n' +
@@ -132,7 +164,20 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
       'a=group:BUNDLE ' + localMid + '\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120\r\nc=IN IP4 0.0.0.0\r\na=recvonly\r\na=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\na=fmtp:120 max-fs=12288;max-fr=60\r\na=rtcp-fb:120 nack\r\na=rtcp-fb:120 nack pli\r\na=rtcp-fb:120 ccm fir\r\na=rtcp-fb:120 goog-remb\r\na=rtcp-mux\r\na=rtpmap:120 VP8/90000\r\na=setup:active\r\n';
+    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120\r\n' +
+      'c=IN IP4 0.0.0.0\r\n' +
+      'a=recvonly\r\n' +
+      'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
+      'a=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n' +
+      'a=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\n' +
+      'a=fmtp:120 max-fs=12288;max-fr=60\r\n' +
+      'a=rtcp-fb:120 nack\r\n' +
+      'a=rtcp-fb:120 nack pli\r\n' +
+      'a=rtcp-fb:120 ccm fir\r\n' +
+      'a=rtcp-fb:120 goog-remb\r\n' +
+      'a=rtcp-mux\r\n' +
+      'a=rtpmap:120 VP8/90000\r\n' +
+      'a=setup:active\r\n';
     sdp += codecs +
         'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
         'a=ice-pwd:' + ice.password + '\r\n' +
