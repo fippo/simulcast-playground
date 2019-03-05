@@ -1,0 +1,260 @@
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
+<script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
+<style>
+video {
+  width: 320px;
+}
+</style>
+</head>
+<body>
+<div id="local">
+  <h2>Local Video</h2>
+</div>
+<div id="remotes">
+  <h2>Remote Videos</h2>
+</div>
+<script>
+const bitrateSeries = {};
+const bitrateGraphs = {};
+const framerateSeries = {};
+const framerateGraphs = {};
+let lastSendResult;
+let lastRecvResult;
+
+function show(stream, isRemote) {
+    console.log('SHOW', stream, isRemote);
+    const id = isRemote ? stream.id : 'local';
+
+    const container = document.createElement('div');
+    container.id = id + 'Container';
+    document.getElementById(isRemote ? 'remotes' : 'local').appendChild(container);
+
+    const v = document.createElement('video');
+    v.autoplay = true;
+    v.srcObject = stream;
+    v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
+    container.appendChild(v);
+
+    const bitrateCanvas = document.createElement('canvas');
+    bitrateCanvas.id = id + 'BitrateCanvas';
+    bitrateCanvas.title = 'Bitrate';
+    container.appendChild(bitrateCanvas);
+
+    const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+    bitrateGraph.updateEndDate();
+
+    bitrateSeries[id] = new TimelineDataSeries();
+    bitrateGraphs[id] = bitrateGraph;
+
+    const framerateCanvas = document.createElement('canvas');
+    framerateCanvas.id = id + 'FramerateCanvas';
+    framerateCanvas.title = 'Framerate';
+    container.appendChild(framerateCanvas);
+
+    const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+    framerateGraph.updateEndDate();
+
+    framerateSeries[id] = new TimelineDataSeries();
+    framerateGraphs[id] = framerateGraph;
+}
+
+const pc1 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
+const pc2 = new RTCPeerConnection({sdpSemantics: 'plan-b'});
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => show(e.streams[0], true);
+
+const recvSSRCs = {};
+pc2.oniceconnectionstatechange = () => {
+    if (pc2.iceConnectionState === 'connected') {
+        setInterval(() => {
+            pc2.getStats().then(stats => {
+                stats.forEach(report => {
+                    if (report.type === 'inbound-rtp') {
+                        if (!recvSSRCs[report.ssrc]) {
+                            const {ssrc} = report;
+                            recvSSRCs[ssrc] = true;
+                            let {sdp} = pc2.remoteDescription;
+                            sdp = sdp.split('\r\n').filter(line => {
+                                if (line.indexOf('urn:ietf:params:rtp-hdrext:sdes') !== -1) {
+                                    return false;
+                                }
+                                if (line.indexOf('a=msid:') !== -1) {
+                                    return false;
+                                }
+                                return !line.startsWith('a=rid:') && !line.startsWith('a=simulcast');
+                            }).join('\r\n');
+                            sdp += 'a=ssrc:' + ssrc + ' cname:something\r\n' +
+                                'a=ssrc:' + ssrc + ' msid:' + ssrc + ' ' + ssrc + '\r\n';
+                            pc2.setRemoteDescription({type: 'offer', sdp})
+                                .then(() => pc2.createAnswer())
+                                .then((answer) => pc2.setLocalDescription(answer))
+                                .then(() => {
+                                    console.log('done adding', ssrc);
+                                })
+                                .catch(e => console.error(e));
+                        }
+                    }
+                });
+            });
+        }, 500);
+    }
+};
+
+navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
+.then((stream) => {
+    pc1.addTransceiver(stream.getVideoTracks()[0], {
+        streams: [stream],
+        sendEncodings: [{rid: 0}, {rid: 1}, {rid: 2}]
+    });
+    show(stream, false);
+    return pc1.createOffer();
+})
+.then((offer) => {
+    const offer2 = {
+        type: 'offer',
+        sdp: offer.sdp,
+    };
+    offer2.sdp = offer2.sdp.split('\r\n').filter(line => {
+        if (line.indexOf('urn:ietf:params:rtp-hdrext:sdes') !== -1) {
+            return false;
+        }
+        if (line.indexOf('a=msid:') !== -1) {
+            return false;
+        }
+        return !line.startsWith('a=rid:') && !line.startsWith('a=simulcast');
+    }).join('\r\n');
+    return Promise.all([
+        pc1.setLocalDescription(offer),
+        pc2.setRemoteDescription(offer2),
+    ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
+    const answer2 = {
+        type: 'answer',
+        sdp: answer.sdp
+    };
+    answer2.sdp += 'a=rid:0 recv\r\n' +
+        'a=rid:1 recv\r\n' +
+        'a=rid:2 recv\r\n' +
+        'a=simulcast:recv 0;1;2\r\n';
+        /* we don't need those it seems...
+    answer2.sdp += 'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
+        'a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
+        'a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n';
+        */
+    return Promise.all([
+        pc2.setLocalDescription(answer),
+        pc1.setRemoteDescription(answer2),
+    ]);
+})
+.then(function() {
+    window.setInterval(() => {
+        pc1.getSenders()[0].getStats().then((res) => {
+            res.forEach((report) => {
+                if (report.type === 'outbound-rtp') {
+                    const now = report.timestamp;
+                    const bytes = report.bytesSent;
+                    const frames = report.framesEncoded;
+                    if (lastSendResult && lastSendResult.get(report.id)) {
+                        const graphName = 'local';
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastSendResult.get(report.id).bytesSent) /
+                            (now - lastSendResult.get(report.id).timestamp);
+
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
+
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastSendResult.get(report.id).framesEncoded) /
+                            (now - lastSendResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
+                    }
+                }
+            });
+            lastSendResult = res;
+        });
+        pc2.getStats().then((res) => {
+            res.forEach((report) => {
+                if (report.type === 'inbound-rtp') {
+                    const now = report.timestamp;
+                    const bytes = report.bytesReceived;
+                    const frames = report.framesDecoded;
+                    if (lastRecvResult && lastRecvResult.get(report.id)) {
+                        const track = res.get(report.trackId).trackIdentifier;
+                        const graphName = track;
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastRecvResult.get(report.id).bytesReceived) /
+                            (now - lastRecvResult.get(report.id).timestamp);
+
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
+
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastRecvResult.get(report.id).framesDecoded) /
+                            (now - lastRecvResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
+                    }
+                }
+            });
+            lastRecvResult = res;
+        });
+    }, 2000);
+})
+.catch(e => console.error(e));
+/* making assertions about setting a layers active flags:
+var sender = pc1.getSenders()[0]
+var param = sender.getParameters();
+param.encodings[0].active = false;
+sender.setParameters(param);
+// now assert on pc2.getReceivers()[0].getStats() that no packets are received
+setTimeout(() => {
+    pc2.getReceivers()[0].getStats().then(initialStats => {
+        setTimeout(() => {
+            pc2.getReceivers()[0].getStats().then(subsequentStats => {
+                subsequentStats.forEach(s => {
+                    if (s.type === 'inbound-rtp') {
+                        // should be 0
+                        console.log('low-res track bytes received in last second', s.bytesReceived - initialStats.get(s.id).bytesReceived);
+                    }
+                }
+            });
+        });
+    }, 1000); // query stats for 1 second
+  });
+}, 1000); // wait 1 second
+*/
+/* make assertions about setting maxBitrate
+var sender = pc1.getSenders()[0]
+var param = sender.getParameters();
+param.encodings[1].maxBitrate = 100000;
+sender.setParameters(param);
+// now assert on pc2.getReceivers()[1].getStats() that ~100kbps are received
+setTimeout(() => {
+    pc2.getReceivers()[1].getStats().then(initialStats => {
+        setTimeout(() => {
+            pc2.getReceivers()[1].getStats().then(subsequentStats => {
+                subsequentStats.forEach(s => {
+                    if (s.type === 'inbound-rtp') {
+                        console.log('mid-res track bytes received in last second', 8000 * (s.bytesReceived - initialStats.get(s.id).bytesReceived) / (s.timestamp - initialStats.get(s.id).timestamp))
+                    }
+                });
+            });
+        }, 1000); // query stats for 1 second
+    });
+}, 1000); // wait 1 second
+*/
+</script>
+</body>
+</html>
