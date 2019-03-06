@@ -85,6 +85,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
     const midPrefix = adapter.browserDetails.version < 63 ? 'sdparta_' : '';
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
     let sdp = 'v=0\r\n' +
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
@@ -92,52 +93,23 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
       'a=group:BUNDLE ' + midPrefix + '0 ' + midPrefix + '1 ' + midPrefix + '2\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120 121 126 97\r\n' +
-      'c=IN IP4 0.0.0.0\r\n' +
-      'a=sendrecv\r\n' +
-      'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
-      'a=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n' +
-      'a=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\n' +
-      'a=extmap:6/sendonly urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
-      'a=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1\r\n' +
-      'a=fmtp:97 profile-level-id=42e01f;level-asymmetry-allowed=1\r\n' +
-      'a=fmtp:120 max-fs=12288;max-fr=60\r\n' +
-      'a=fmtp:121 max-fs=12288;max-fr=60\r\n' +
-      'a=rtcp-fb:120 nack\r\n' +
-      'a=rtcp-fb:120 nack pli\r\n' +
-      'a=rtcp-fb:120 ccm fir\r\n' +
-      'a=rtcp-fb:120 goog-remb\r\n' +
-      'a=rtcp-fb:121 nack\r\n' +
-      'a=rtcp-fb:121 nack pli\r\n' +
-      'a=rtcp-fb:121 ccm fir\r\n' +
-      'a=rtcp-fb:121 goog-remb\r\n' +
-      'a=rtcp-fb:126 nack\r\n' +
-      'a=rtcp-fb:126 nack pli\r\n' +
-      'a=rtcp-fb:126 ccm fir\r\n' +
-      'a=rtcp-fb:126 goog-remb\r\n' +
-      'a=rtcp-fb:97 nack\r\n' +
-      'a=rtcp-fb:97 nack pli\r\n' +
-      'a=rtcp-fb:97 ccm fir\r\n' +
-      'a=rtcp-fb:97 goog-remb\r\n' +
-      'a=rtcp-mux\r\n' +
-      'a=rtpmap:120 VP8/90000\r\n' +
-      'a=rtpmap:121 VP9/90000\r\n' +
-      'a=rtpmap:126 H264/90000\r\n' +
-      'a=rtpmap:97 H264/90000\r\n' +
-      'a=setup:actpass\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
+        'a=setup:actpass\r\n' +
         'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
         'a=ice-pwd:' + ice.password + '\r\n' +
         'a=mid:' + midPrefix + '0\r\n' +
         'a=msid:low low\r\n' +
         ssrcs[0] + '\r\n';
     sdp += codecs +
+        'a=setup:actpass\r\n' +
         'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
         'a=ice-pwd:' + ice.password + '\r\n' +
         'a=mid:' + midPrefix + '1\r\n' +
         'a=msid:mid mid\r\n' +
         ssrcs[1] + '\r\n';
     sdp += codecs +
+        'a=setup:actpass\r\n' +
         'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
         'a=ice-pwd:' + ice.password + '\r\n' +
         'a=mid:' + midPrefix + '2\r\n' +
@@ -164,21 +136,10 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
       'a=group:BUNDLE ' + localMid + '\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    let codecs = 'm=video 9 UDP/TLS/RTP/SAVPF 120\r\n' +
-      'c=IN IP4 0.0.0.0\r\n' +
-      'a=recvonly\r\n' +
-      'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
-      'a=extmap:4 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n' +
-      'a=extmap:5 urn:ietf:params:rtp-hdrext:toffset\r\n' +
-      'a=fmtp:120 max-fs=12288;max-fr=60\r\n' +
-      'a=rtcp-fb:120 nack\r\n' +
-      'a=rtcp-fb:120 nack pli\r\n' +
-      'a=rtcp-fb:120 ccm fir\r\n' +
-      'a=rtcp-fb:120 goog-remb\r\n' +
-      'a=rtcp-mux\r\n' +
-      'a=rtpmap:120 VP8/90000\r\n' +
-      'a=setup:active\r\n';
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
+        'a=setup:active\r\n' +
         'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
         'a=ice-pwd:' + ice.password + '\r\n' +
         'a=mid:' + localMid + '\r\n';
