@@ -62,7 +62,7 @@ function show(stream, isRemote) {
 }
 
 const pc1 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
-const pc2 = new RTCPeerConnection({sdpSemantics: 'plan-b'});
+const pc2 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => show(e.streams[0], true);
@@ -78,17 +78,48 @@ pc2.oniceconnectionstatechange = () => {
                             const {ssrc} = report;
                             recvSSRCs[ssrc] = true;
                             let {sdp} = pc2.remoteDescription;
-                            sdp = sdp.split('\r\n').filter(line => {
-                                if (line.indexOf('urn:ietf:params:rtp-hdrext:sdes') !== -1) {
-                                    return false;
-                                }
-                                if (line.indexOf('a=msid:') !== -1) {
-                                    return false;
-                                }
-                                return !line.startsWith('a=rid:') && !line.startsWith('a=simulcast');
-                            }).join('\r\n');
-                            sdp += 'a=ssrc:' + ssrc + ' cname:something\r\n' +
-                                'a=ssrc:' + ssrc + ' msid:' + ssrc + ' ' + ssrc + '\r\n';
+                            const sections = SDPUtils.splitSections(sdp);
+                            const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+                            const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+                            const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+                            rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
+                                return ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id' &&
+                                    ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
+                                    ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
+                            });
+                            const ssrcs = Object.keys(recvSSRCs);
+                            sdp = 'v=0\r\n' +
+                              'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+                              's=-\r\n' +
+                              't=0 0\r\n' +
+                              'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+                              'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+                              'a=ice-pwd:' + ice.password + '\r\n' +
+                              'a=group:BUNDLE ' + ssrcs.map((val, idx) => idx).join(' ') + '\r\n' +
+                              'a=msid-semantic:WMS *\r\n';
+
+                            const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+                            if (ssrcs[0]) {
+                                sdp += codecs +
+                                    'a=setup:actpass\r\n' +
+                                    'a=mid:0\r\n' +
+                                    'a=msid:low low\r\n';
+                                sdp += 'a=ssrc:' + ssrcs[0] + ' cname:something\r\n';
+                            }
+                            if (ssrcs[1]) {
+                                sdp += codecs +
+                                    'a=setup:actpass\r\n' +
+                                    'a=mid:1\r\n' +
+                                    'a=msid:mid mid\r\n';
+                                sdp += 'a=ssrc:' + ssrcs[1] + ' cname:something\r\n';
+                            }
+                            if (ssrcs[2]) {
+                                sdp += codecs +
+                                    'a=setup:actpass\r\n' +
+                                    'a=mid:2\r\n' +
+                                    'a=msid:hi hi\r\n';
+                                sdp += 'a=ssrc:' + ssrcs[1] + ' cname:something\r\n';
+                            }
                             pc2.setRemoteDescription({type: 'offer', sdp})
                                 .then(() => pc2.createAnswer())
                                 .then((answer) => pc2.setLocalDescription(answer))
@@ -126,56 +157,60 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
     });
-    console.log('RTPP', rtpParameters);
     let sdp = 'v=0\r\n' +
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
       't=0 0\r\n' +
       'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=group:BUNDLE 0\r\n' + // 1 2\r\n' +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      // 'a=group:BUNDLE 0 1 2\r\n' +
+      'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
         'a=setup:actpass\r\n' +
-        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-        'a=ice-pwd:' + ice.password + '\r\n' +
-        'a=mid:0\r\n';
-    const offer2 = {
-        type: 'offer',
-        sdp,
-    };
-    offer2.sdp = offer2.sdp.split('\r\n').filter(line => {
-        if (line.indexOf('urn:ietf:params:rtp-hdrext:sdes') !== -1) {
-            return false;
-        }
-        if (line.indexOf('a=msid:') !== -1) {
-            return false;
-        }
-        return !line.startsWith('a=rid:') && !line.startsWith('a=simulcast');
-    }).join('\r\n');
+        'a=mid:0\r\n' +
+        'a=msid:low low\r\n';
+
     return Promise.all([
         pc1.setLocalDescription(offer),
-        pc2.setRemoteDescription(offer2),
+        pc2.setRemoteDescription({
+            type: 'offer',
+            sdp,
+        }),
     ]);
 })
 .then(() => pc2.createAnswer())
 .then(answer => {
-    const answer2 = {
-        type: 'answer',
-        sdp: answer.sdp
-    };
-    answer2.sdp += 'a=rid:0 recv\r\n' +
+    const sections = SDPUtils.splitSections(answer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    let sdp = 'v=0\r\n' +
+      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+      's=-\r\n' +
+      't=0 0\r\n' +
+      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=group:BUNDLE 0\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    sdp += codecs;
+    sdp += 'a=rid:0 recv\r\n' +
         'a=rid:1 recv\r\n' +
         'a=rid:2 recv\r\n' +
         'a=simulcast:recv 0;1;2\r\n';
-        /* we don't need those it seems...
-    answer2.sdp += 'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
+    sdp += 'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
         'a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
         'a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n';
-        */
     return Promise.all([
         pc2.setLocalDescription(answer),
-        pc1.setRemoteDescription(answer2),
+        pc1.setRemoteDescription({
+            type: 'answer',
+            sdp
+        }),
     ]);
 })
 .then(function() {
