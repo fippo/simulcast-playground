@@ -26,7 +26,6 @@ let lastSendResult;
 let lastRecvResult;
 
 function show(stream, isRemote) {
-    console.log('SHOW', stream, isRemote);
     const id = isRemote ? stream.id : 'local';
 
     const container = document.createElement('div');
@@ -118,9 +117,32 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     return pc1.createOffer();
 })
 .then((offer) => {
+    const sections = SDPUtils.splitSections(offer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
+        return ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id' &&
+            ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
+            ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
+    });
+    console.log('RTPP', rtpParameters);
+    let sdp = 'v=0\r\n' +
+      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+      's=-\r\n' +
+      't=0 0\r\n' +
+      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=group:BUNDLE 0\r\n' + // 1 2\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    sdp += codecs +
+        'a=setup:actpass\r\n' +
+        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+        'a=ice-pwd:' + ice.password + '\r\n' +
+        'a=mid:0\r\n';
     const offer2 = {
         type: 'offer',
-        sdp: offer.sdp,
+        sdp,
     };
     offer2.sdp = offer2.sdp.split('\r\n').filter(line => {
         if (line.indexOf('urn:ietf:params:rtp-hdrext:sdes') !== -1) {
