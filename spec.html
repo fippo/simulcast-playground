@@ -71,7 +71,7 @@ pc2.ontrack = (e) => show(e.streams[0], true);
 const recvSSRCs = {};
 pc2.oniceconnectionstatechange = () => {
     if (pc2.iceConnectionState === 'connected') {
-        setInterval(() => {
+        const pollforssrcs = setInterval(() => {
             pc2.getStats().then(stats => {
                 stats.forEach(report => {
                     if (report.type === 'inbound-rtp') {
@@ -97,11 +97,14 @@ pc2.oniceconnectionstatechange = () => {
                                     console.log('done adding', ssrc);
                                 })
                                 .catch(e => console.error(e));
+                            if (Object.keys(recvSSRCs).length === 3) {
+                                clearInterval(pollforssrcs);
+                            }
                         }
                     }
                 });
             });
-        }, 500);
+        }, 100);
     }
 };
 
