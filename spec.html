@@ -164,23 +164,23 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 })
 .then(() => pc2.createAnswer())
 .then(answer => {
-    const answer2 = {
-        type: 'answer',
-        sdp: answer.sdp
-    };
+    let {sdp} = answer;
     rids.forEach(rid => {
-        answer2.sdp += 'a=rid:' + rid + ' recv\r\n';
+        sdp += 'a=rid:' + rid + ' recv\r\n';
     });
-    answer2.sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
+    sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
     const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
     headerExtensions.forEach(ext => {
         if (extensionsToFilter.includes(ext.uri)) {
-            answer2.sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
+            sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
         }
     });
     return Promise.all([
         pc2.setLocalDescription(answer),
-        pc1.setRemoteDescription(answer2),
+        pc1.setRemoteDescription({
+            type: 'answer',
+            sdp,
+        }),
     ]);
 })
 .then(function() {
