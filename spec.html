@@ -72,6 +72,7 @@ const extensionsToFilter = [
     'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
     'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
 ];
+const rids = [0, 1, 2];
 const recvSSRCs = {};
 pc2.oniceconnectionstatechange = () => {
     if (pc2.iceConnectionState === 'connected') {
@@ -116,7 +117,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
     pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
-        sendEncodings: [{rid: 0}, {rid: 1}, {rid: 2}]
+        sendEncodings: rids.map(rid => {rid}),
     });
     show(stream, false);
     return pc1.createOffer();
@@ -167,12 +168,12 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         type: 'answer',
         sdp: answer.sdp
     };
-    answer2.sdp += 'a=rid:0 recv\r\n' +
-        'a=rid:1 recv\r\n' +
-        'a=rid:2 recv\r\n' +
-        'a=simulcast:recv 0;1;2\r\n';
-    const senderParameters = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]);
-    senderParameters.headerExtensions.forEach(ext => {
+    rids.forEach(rid => {
+        answer2.sdp += 'a=rid:' + rid + ' recv\r\n';
+    });
+    answer2.sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
+    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
+    headerExtensions.forEach(ext => {
         if (extensionsToFilter.includes(ext.uri)) {
             answer2.sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
         }
