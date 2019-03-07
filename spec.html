@@ -67,6 +67,12 @@ pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => show(e.streams[0], true);
 
+const extensionsToFilter = [
+    'urn:ietf:params:rtp-hdrext:sdes:mid',
+    'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
+    'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
+];
+const rids = [0, 1, 2];
 const recvSSRCs = {};
 pc2.oniceconnectionstatechange = () => {
     if (pc2.iceConnectionState === 'connected') {
@@ -142,7 +148,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
     pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
-        sendEncodings: [{rid: 0}, {rid: 1}, {rid: 2}]
+        sendEncodings: rids.map(rid => {rid}),
     });
     show(stream, false);
     return pc1.createOffer();
@@ -198,13 +204,16 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs;
-    sdp += 'a=rid:0 recv\r\n' +
-        'a=rid:1 recv\r\n' +
-        'a=rid:2 recv\r\n' +
-        'a=simulcast:recv 0;1;2\r\n';
-    sdp += 'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
-        'a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
-        'a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n';
+    rids.forEach(rid => {
+        sdp += 'a=rid:' + rid + ' recv\r\n';
+    });
+    sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
+    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
+    headerExtensions.forEach(ext => {
+        if (extensionsToFilter.includes(ext.uri)) {
+            sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
+        }
+    });
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription({
