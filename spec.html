@@ -168,11 +168,9 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         'a=rid:1 recv\r\n' +
         'a=rid:2 recv\r\n' +
         'a=simulcast:recv 0;1;2\r\n';
-        /* we don't need those it seems...
     answer2.sdp += 'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
         'a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
         'a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n';
-        */
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription(answer2),
