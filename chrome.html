@@ -118,7 +118,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
       't=0 0\r\n' +
-      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=group:BUNDLE 0 1 2\r\n' +
@@ -163,22 +163,14 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
       't=0 0\r\n' +
-      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs;
-    /*
-    sdp += 'a=rid:0 recv\r\n' +
-        'a=rid:1 recv\r\n' +
-        'a=rid:2 recv\r\n' +
-        'a=simulcast:recv 0;1;2\r\n';
-    sdp += 'a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid\r\n' +
-        'a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n' +
-        'a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n';
-        */
+
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription({

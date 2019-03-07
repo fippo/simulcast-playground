@@ -135,14 +135,14 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
       't=0 0\r\n' +
-      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=group:BUNDLE 0\r\n' + // 1 2\r\n' +
+      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
         'a=setup:actpass\r\n' +
-        'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-        'a=ice-pwd:' + ice.password + '\r\n' +
         'a=mid:0\r\n';
     const offer2 = {
         type: 'offer',
