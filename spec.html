@@ -126,7 +126,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
     });
-    console.log('RTPP', rtpParameters);
+    rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
     let sdp = 'v=0\r\n' +
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
