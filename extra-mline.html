@@ -83,6 +83,8 @@ pc2.oniceconnectionstatechange = () => {
                         if (!recvSSRCs[report.ssrc]) {
                             const {ssrc} = report;
                             recvSSRCs[ssrc] = true;
+                        }
+                        if (Object.keys(recvSSRCs).length === 3) {
                             let {sdp} = pc2.remoteDescription;
                             const sections = SDPUtils.splitSections(sdp);
                             const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
@@ -96,28 +98,33 @@ pc2.oniceconnectionstatechange = () => {
                               'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
                               'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
                               'a=ice-pwd:' + ice.password + '\r\n' +
-                              'a=group:BUNDLE ' + ssrcs.map((val, idx) => idx).join(' ') + '\r\n' +
+                              'a=group:BUNDLE 0 ' + ssrcs.map((val, idx) => idx + 1).join(' ') + '\r\n' +
                               'a=msid-semantic:WMS *\r\n';
 
                             const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+                            sdp += codecs +
+                                'a=setup:actpass\r\n' +
+                                'a=mid:0\r\n' +
+                                'a=msid:invalid invalid\r\n';
+                            sdp += 'a=ssrc:' + 0xdeadbeef + ' cname:something\r\n';
                             if (ssrcs[0]) {
                                 sdp += codecs +
                                     'a=setup:actpass\r\n' +
-                                    'a=mid:0\r\n' +
+                                    'a=mid:1\r\n' +
                                     'a=msid:low low\r\n';
                                 sdp += 'a=ssrc:' + ssrcs[0] + ' cname:something\r\n';
                             }
                             if (ssrcs[1]) {
                                 sdp += codecs +
                                     'a=setup:actpass\r\n' +
-                                    'a=mid:1\r\n' +
+                                    'a=mid:2\r\n' +
                                     'a=msid:mid mid\r\n';
                                 sdp += 'a=ssrc:' + ssrcs[1] + ' cname:something\r\n';
                             }
                             if (ssrcs[2]) {
                                 sdp += codecs +
                                     'a=setup:actpass\r\n' +
-                                    'a=mid:2\r\n' +
+                                    'a=mid:3\r\n' +
                                     'a=msid:hi hi\r\n';
                                 sdp += 'a=ssrc:' + ssrcs[1] + ' cname:something\r\n';
                             }
@@ -158,6 +165,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
     });
+    rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
     let sdp = 'v=0\r\n' +
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
@@ -172,7 +180,8 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:0\r\n' +
-        'a=msid:low low\r\n';
+        'a=msid:invalid invalid\r\n';
+    sdp += 'a=ssrc:' + 0xdeadbeef + ' cname:something\r\n';
 
     return Promise.all([
         pc1.setLocalDescription(offer),
