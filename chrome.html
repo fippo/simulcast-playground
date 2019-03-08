@@ -79,34 +79,53 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
 
-    /* legacy munging code */
-    var videoPart = SDPUtils.getMediaSections(offer.sdp)[0];
-    var match = videoPart.match(/a=ssrc:(\d+) cname:(.*)\r\n/);
-    var msid = videoPart.match(/a=ssrc:(\d+) msid:(.*)\r\n/);
-    var lines = offer.sdp.trim().split('\r\n');
-    var removed = lines.splice(lines.length - 4, 4);
-    var videoSSRC1 = parseInt(match[1]);
-    var rtxSSRC1 = SDPUtils.matchPrefix(videoPart, 'a=ssrc-group:FID ')[0].split(' ')[2];
-    var videoSSRC2 = videoSSRC1 + 1;
-    var rtxSSRC2 = videoSSRC1 + 2;
-    var videoSSRC3 = videoSSRC1 + 3;
-    var rtxSSRC3 = videoSSRC1 + 4;
-    lines.push(removed[0]);
-    lines.push(removed[1]);
-    lines.push('a=ssrc:' + videoSSRC2 + ' cname:' + match[2]);
-    lines.push('a=ssrc:' + videoSSRC2 + ' msid:' + msid[2]);
-    lines.push('a=ssrc:' + rtxSSRC2 + ' cname:' + match[2]);
-    lines.push('a=ssrc:' + rtxSSRC2 + ' msid:' + msid[2]);
+    /* sdp munging code. Really, its just extracting some information (ssrc, cname and msid) and reusing it.
+     * It could just set a different set of ssrc instead of trying to reuse the first.
+     */
+    let cname;
+    let msid;
+    SDPUtils.matchPrefix(sections[1], 'a=ssrc:').forEach(line => {
+        console.log(SDPUtils.parseSsrcMedia(line));
+        const media = SDPUtils.parseSsrcMedia(line);
+        if (media.attribute === 'cname') {
+            cname = media.value;
+        } else if (media.attribute === 'msid') {
+            msid = media.value;
+        }
+    });
 
-    lines.push('a=ssrc:' + videoSSRC3 + ' cname:' + match[2]);
-    lines.push('a=ssrc:' + videoSSRC3 + ' msid:' + msid[2]);
-    lines.push('a=ssrc:' + rtxSSRC3 + ' cname:' + match[2]);
-    lines.push('a=ssrc:' + rtxSSRC3 + ' msid:' + msid[2]);
+    const fidGroup = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ')[0].substr(17);
+    const lines = sections[1].trim().split('\r\n').filter(line => {
+        return line.indexOf('a=ssrc:') !== 0 && line.indexOf('a=ssrc-group:') !== 0;
+    });
+    const [videoSSRC1, rtxSSRC1] = fidGroup.split(' ').map(ssrc => parseInt(ssrc, 10));
+    const videoSSRC2 = videoSSRC1 + 1;
+    const rtxSSRC2 = videoSSRC1 + 2;
+    const videoSSRC3 = videoSSRC1 + 3;
+    const rtxSSRC3 = videoSSRC1 + 4;
 
+    lines.push('a=ssrc:' + videoSSRC1 + ' cname:' + cname);
+    lines.push('a=ssrc:' + videoSSRC1 + ' msid:' + msid);
+    lines.push('a=ssrc:' + rtxSSRC1 + ' cname:' + cname);
+    lines.push('a=ssrc:' + rtxSSRC1 + ' msid:' + msid);
+
+    lines.push('a=ssrc:' + videoSSRC2 + ' cname:' + cname);
+    lines.push('a=ssrc:' + videoSSRC2 + ' msid:' + msid);
+    lines.push('a=ssrc:' + rtxSSRC2 + ' cname:' + cname);
+    lines.push('a=ssrc:' + rtxSSRC2 + ' msid:' + msid);
+
+    lines.push('a=ssrc:' + videoSSRC3 + ' cname:' + cname);
+    lines.push('a=ssrc:' + videoSSRC3 + ' msid:' + msid);
+    lines.push('a=ssrc:' + rtxSSRC3 + ' cname:' + cname);
+    lines.push('a=ssrc:' + rtxSSRC3 + ' msid:' + msid);
+
+    lines.push('a=ssrc-group:FID ' + videoSSRC1 + ' ' + rtxSSRC1);
     lines.push('a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2);
     lines.push('a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3);
     lines.push('a=ssrc-group:SIM ' + videoSSRC1 + ' ' + videoSSRC2 + ' ' + videoSSRC3);
-    offer.sdp = lines.join('\r\n') + '\r\n';
+
+    sections[1] = lines.join('\r\n') + '\r\n';
+    offer.sdp = sections.join('');
 
     // unified plan things.
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
