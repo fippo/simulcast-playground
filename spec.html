@@ -88,17 +88,12 @@ pc2.oniceconnectionstatechange = () => {
                             const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
                             const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
                             const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
-                            rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
-                                return ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id' &&
-                                    ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
-                                    ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
-                            });
                             const ssrcs = Object.keys(recvSSRCs);
                             sdp = 'v=0\r\n' +
                               'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
                               's=-\r\n' +
                               't=0 0\r\n' +
-                              'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+                              'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
                               'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
                               'a=ice-pwd:' + ice.password + '\r\n' +
                               'a=group:BUNDLE ' + ssrcs.map((val, idx) => idx).join(' ') + '\r\n' +
@@ -197,13 +192,15 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
       's=-\r\n' +
       't=0 0\r\n' +
-      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs;
+    sdp += 'a=setup:active\r\n';
+
     rids.forEach(rid => {
         sdp += 'a=rid:' + rid + ' recv\r\n';
     });
