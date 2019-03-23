@@ -119,7 +119,7 @@ pc2.oniceconnectionstatechange = () => {
                                     'a=setup:actpass\r\n' +
                                     'a=mid:2\r\n' +
                                     'a=msid:hi hi\r\n';
-                                sdp += 'a=ssrc:' + ssrcs[1] + ' cname:something\r\n';
+                                sdp += 'a=ssrc:' + ssrcs[2] + ' cname:something\r\n';
                             }
                             pc2.setRemoteDescription({type: 'offer', sdp})
                                 .then(() => pc2.createAnswer())
