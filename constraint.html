@@ -1,0 +1,268 @@
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
+<script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
+<style>
+video {
+  width: 320px;
+}
+</style>
+</head>
+<body>
+<div id="local">
+  <h2>Local Video</h2>
+</div>
+<div id="remotes">
+  <h2>Remote Videos</h2>
+</div>
+<script>
+const bitrateSeries = {};
+const bitrateGraphs = {};
+const framerateSeries = {};
+const framerateGraphs = {};
+let lastSendResult;
+let lastRecvResult;
+
+function show(stream, isRemote) {
+    const id = isRemote ? stream.id : 'local';
+
+    const container = document.createElement('div');
+    container.id = id + 'Container';
+    document.getElementById(isRemote ? 'remotes' : 'local').appendChild(container);
+
+    const v = document.createElement('video');
+    v.autoplay = true;
+    v.srcObject = stream;
+    v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
+    container.appendChild(v);
+
+    const bitrateCanvas = document.createElement('canvas');
+    bitrateCanvas.id = id + 'BitrateCanvas';
+    bitrateCanvas.title = 'Bitrate';
+    container.appendChild(bitrateCanvas);
+
+    const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+    bitrateGraph.updateEndDate();
+
+    bitrateSeries[id] = new TimelineDataSeries();
+    bitrateGraphs[id] = bitrateGraph;
+
+    const framerateCanvas = document.createElement('canvas');
+    framerateCanvas.id = id + 'FramerateCanvas';
+    framerateCanvas.title = 'Framerate';
+    container.appendChild(framerateCanvas);
+
+    const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+    framerateGraph.updateEndDate();
+
+    framerateSeries[id] = new TimelineDataSeries();
+    framerateGraphs[id] = framerateGraph;
+}
+
+const pc1 = new RTCPeerConnection({sdpSemantics: 'plan-b'});
+const pc2 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => show(e.streams[0], true);
+
+navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
+.then((stream) => {
+    pc1.addTrack(stream.getVideoTracks()[0], stream);
+    show(stream, false);
+    return pc1.createOffer({numberOfSimulcastLayers: 3});
+})
+.then((offer) => {
+    const sections = SDPUtils.splitSections(offer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+
+    // unified plan things.
+    rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
+        return ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id' &&
+            ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
+            ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
+    });
+    let sdp = 'v=0\r\n' +
+      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+      's=-\r\n' +
+      't=0 0\r\n' +
+      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=group:BUNDLE video 1 2\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+
+    const fidGroups = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ');
+    if (fidGroups.length > 0) {
+      const [videoSSRC1, rtxSSRC1] = fidGroups[0].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=setup:actpass\r\n' +
+          'a=mid:video\r\n' +
+          'a=msid:low low\r\n' +
+          'a=ssrc:' + videoSSRC1 + ' cname:something\r\n';
+          'a=ssrc:' + rtxSSRC1 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC1 + ' ' + rtxSSRC1 + '\r\n';
+    }
+    if (fidGroups.length > 1) {
+      const [videoSSRC2, rtxSSRC2] = fidGroups[1].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=setup:actpass\r\n' +
+          'a=mid:1\r\n' +
+          'a=msid:mid mid\r\n' +
+          'a=ssrc:' + videoSSRC2 + ' cname:something\r\n' +
+          'a=ssrc:' + rtxSSRC2 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2 + '\r\n';
+    }
+    if (fidGroups.length > 2) {
+      const [videoSSRC3, rtxSSRC3] = fidGroups[2].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=setup:actpass\r\n' +
+          'a=mid:2\r\n' +
+          'a=msid:hi hi\r\n' +
+          'a=ssrc:' + videoSSRC3 + ' cname:something\r\n' +
+          'a=ssrc:' + rtxSSRC3 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3 + '\r\n';
+    }
+    return Promise.all([
+        pc1.setLocalDescription(offer),
+        pc2.setRemoteDescription({
+            type: 'offer',
+            sdp,
+        }),
+    ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
+    const sections = SDPUtils.splitSections(answer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    let sdp = 'v=0\r\n' +
+      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
+      's=-\r\n' +
+      't=0 0\r\n' +
+      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
+      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
+      'a=ice-pwd:' + ice.password + '\r\n' +
+      'a=group:BUNDLE video\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    sdp += codecs;
+
+    return Promise.all([
+        pc2.setLocalDescription(answer),
+        pc1.setRemoteDescription({
+            type: 'answer',
+            sdp
+        }),
+    ]);
+})
+.then(function() {
+    window.setInterval(() => {
+        pc1.getSenders()[0].getStats().then((res) => {
+            res.forEach((report) => {
+                if (report.type === 'outbound-rtp') {
+                    const now = report.timestamp;
+                    const bytes = report.bytesSent;
+                    const frames = report.framesEncoded;
+                    if (lastSendResult && lastSendResult.get(report.id)) {
+                        const graphName = 'local';
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastSendResult.get(report.id).bytesSent) /
+                            (now - lastSendResult.get(report.id).timestamp);
+
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
+
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastSendResult.get(report.id).framesEncoded) /
+                            (now - lastSendResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
+                    }
+                }
+            });
+            lastSendResult = res;
+        });
+        pc2.getStats().then((res) => {
+            res.forEach((report) => {
+                if (report.type === 'inbound-rtp') {
+                    const now = report.timestamp;
+                    const bytes = report.bytesReceived;
+                    const frames = report.framesDecoded;
+                    if (lastRecvResult && lastRecvResult.get(report.id)) {
+                        const track = res.get(report.trackId).trackIdentifier;
+                        const graphName = track;
+                        // calculate bitrate
+                        const bitrate = 8000 * (bytes - lastRecvResult.get(report.id).bytesReceived) /
+                            (now - lastRecvResult.get(report.id).timestamp);
+
+                        bitrateSeries[graphName].addPoint(now, bitrate);
+                        bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
+                        bitrateGraphs[graphName].updateEndDate();
+
+                        //  calculate framerate.
+                        const framerate = 1000 * (frames - lastRecvResult.get(report.id).framesDecoded) /
+                            (now - lastRecvResult.get(report.id).timestamp);
+                        framerateSeries[graphName].addPoint(now, framerate);
+                        framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
+                        framerateGraphs[graphName].updateEndDate();
+                    }
+                }
+            });
+            lastRecvResult = res;
+        });
+    }, 2000);
+})
+.catch(e => console.error(e));
+/* making assertions about setting a layers active flags:
+var sender = pc1.getSenders()[0]
+var param = sender.getParameters();
+param.encodings[0].active = false;
+sender.setParameters(param);
+// now assert on pc2.getReceivers()[0].getStats() that no packets are received
+setTimeout(() => {
+    pc2.getReceivers()[0].getStats().then(initialStats => {
+        setTimeout(() => {
+            pc2.getReceivers()[0].getStats().then(subsequentStats => {
+                subsequentStats.forEach(s => {
+                    if (s.type === 'inbound-rtp') {
+                        // should be 0
+                        console.log('low-res track bytes received in last second', s.bytesReceived - initialStats.get(s.id).bytesReceived);
+                    }
+                }
+            });
+        });
+    }, 1000); // query stats for 1 second
+  });
+}, 1000); // wait 1 second
+*/
+/* make assertions about setting maxBitrate
+var sender = pc1.getSenders()[0]
+var param = sender.getParameters();
+param.encodings[1].maxBitrate = 100000;
+sender.setParameters(param);
+// now assert on pc2.getReceivers()[1].getStats() that ~100kbps are received
+setTimeout(() => {
+    pc2.getReceivers()[1].getStats().then(initialStats => {
+        setTimeout(() => {
+            pc2.getReceivers()[1].getStats().then(subsequentStats => {
+                subsequentStats.forEach(s => {
+                    if (s.type === 'inbound-rtp') {
+                        console.log('mid-res track bytes received in last second', 8000 * (s.bytesReceived - initialStats.get(s.id).bytesReceived) / (s.timestamp - initialStats.get(s.id).timestamp))
+                    }
+                });
+            });
+        }, 1000); // query stats for 1 second
+    });
+}, 1000); // wait 1 second
+*/
+</script>
+</body>
+</html>
