@@ -109,7 +109,6 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
       'a=ice-pwd:' + ice.password + '\r\n' +
       'a=group:BUNDLE 0 1 2\r\n' +
-      'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
@@ -160,6 +159,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         sdp += 'a=rid:' + rid + ' recv\r\n';
     });
     sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
+    sdp += 'a=mid:' + SDPUtils.getMid(SDPUtils.splitSections(pc1.localDescription.sdp)[1]) + '\r\n';
 
     // Re-add headerextensions we filtered.
     const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
