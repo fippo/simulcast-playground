@@ -75,10 +75,20 @@ const extensionsToFilter = [
 const rids = [0, 1, 2];
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
-    pc1.addTransceiver(stream.getVideoTracks()[0], {
-        streams: [stream],
-        sendEncodings: rids.map(rid => {rid}),
-    });
+    if (adapter.browserDetails.browser === 'firefox') {
+        const sender = pc1.addTrack(stream.getTracks()[0], stream);
+        const bitrates = sessionStorage.bitrates ? JSON.parse(sessionStorage.bitrates) : [2500000, 500000, 150000];
+        sender.setParameters({encodings: [
+            {rid: 2, maxBitrate: bitrates[0]},
+            {rid: 1, maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
+            {rid: 0, maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
+        ]});
+    } else {
+        pc1.addTransceiver(stream.getVideoTracks()[0], {
+            streams: [stream],
+            sendEncodings: rids.map(rid => {rid}),
+        });
+    }
     show(stream, false);
     return pc1.createOffer();
 })
