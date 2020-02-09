@@ -95,28 +95,21 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
         return !extensionsToFilter.includes(ext.uri);
     });
-    let sdp = 'v=0\r\n' +
-      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-      's=-\r\n' +
-      't=0 0\r\n' +
-      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'actpass') +
+      SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE ' + midPrefix + '0 ' + midPrefix + '1 ' + midPrefix + '2\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
-        'a=setup:actpass\r\n' +
         'a=mid:' + midPrefix + '0\r\n' +
         'a=msid:low low\r\n' +
         ssrcs[0] + '\r\n';
     sdp += codecs +
-        'a=setup:actpass\r\n' +
         'a=mid:' + midPrefix + '1\r\n' +
         'a=msid:mid mid\r\n' +
         ssrcs[1] + '\r\n';
     sdp += codecs +
-        'a=setup:actpass\r\n' +
         'a=mid:' + midPrefix + '2\r\n' +
         'a=msid:hi hi\r\n' +
         ssrcs[2] + '\r\n';
@@ -134,19 +127,14 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
     const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
 
     const localMid = SDPUtils.getMid(SDPUtils.splitSections(pc1.localDescription.sdp)[1]);
-    let sdp = 'v=0\r\n' +
-      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-      's=-\r\n' +
-      't=0 0\r\n' +
-      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'active') +
+      SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE ' + localMid + '\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
     sdp += codecs +
-        'a=setup:active\r\n' +
         'a=mid:' + localMid + '\r\n';
 
     sdp += 'a=rid:hi recv\r\n' +

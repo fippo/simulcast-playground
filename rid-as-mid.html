@@ -101,13 +101,9 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     // and ramp-up is slower.
     rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
 
-    let sdp = 'v=0\r\n' +
-      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-      's=-\r\n' +
-      't=0 0\r\n' +
-      'a=fingerprint:sha-256 ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'actpass') +
+      SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0 1 2\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
@@ -142,13 +138,9 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
         return !extensionsToFilter.includes(ext.uri);
     });
-    let sdp = 'v=0\r\n' +
-      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-      's=-\r\n' +
-      't=0 0\r\n' +
-      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'active') +
+      SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
