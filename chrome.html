@@ -152,13 +152,9 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
             ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
     });
-    let sdp = 'v=0\r\n' +
-      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-      's=-\r\n' +
-      't=0 0\r\n' +
-      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'actpass') +
+      SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0 1 2\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
@@ -167,7 +163,6 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     if (fidGroups.length > 0) {
       const [videoSSRC1, rtxSSRC1] = fidGroups[0].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
       sdp += codecs +
-          'a=setup:actpass\r\n' +
           'a=mid:0\r\n' +
           'a=msid:low low\r\n' +
           'a=ssrc:' + videoSSRC1 + ' cname:something\r\n';
@@ -177,7 +172,6 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     if (fidGroups.length > 1) {
       const [videoSSRC2, rtxSSRC2] = fidGroups[1].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
       sdp += codecs +
-          'a=setup:actpass\r\n' +
           'a=mid:1\r\n' +
           'a=msid:mid mid\r\n' +
           'a=ssrc:' + videoSSRC2 + ' cname:something\r\n' +
@@ -187,7 +181,6 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     if (fidGroups.length > 2) {
       const [videoSSRC3, rtxSSRC3] = fidGroups[2].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
       sdp += codecs +
-          'a=setup:actpass\r\n' +
           'a=mid:2\r\n' +
           'a=msid:hi hi\r\n' +
           'a=ssrc:' + videoSSRC3 + ' cname:something\r\n' +
@@ -208,13 +201,9 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
-    let sdp = 'v=0\r\n' +
-      'o=mozilla...THIS_IS_SDPARTA-61.0 8324701712193024513 0 IN IP4 0.0.0.0\r\n' +
-      's=-\r\n' +
-      't=0 0\r\n' +
-      'a=fingerprint:' + dtls.fingerprints[0].algorithm + ' ' + dtls.fingerprints[0].value + '\r\n' +
-      'a=ice-ufrag:' + ice.usernameFragment + '\r\n' +
-      'a=ice-pwd:' + ice.password + '\r\n' +
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'active') +
+      SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
