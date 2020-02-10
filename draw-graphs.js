@@ -9,6 +9,43 @@ let lastRecvResult;
 // Only for Firefox.
 let ssrc2track;
 
+// Show a stream and draw graphs.
+function show(stream, isRemote) {
+    const id = isRemote ? stream.id : 'local';
+
+    const container = document.createElement('div');
+    container.id = id + 'Container';
+    document.getElementById(isRemote ? 'remotes' : 'local').appendChild(container);
+
+    const v = document.createElement('video');
+    v.autoplay = true;
+    v.srcObject = stream;
+    v.onresize = () => v.title = 'video dimensions: ' + v.videoWidth + 'x' + v.videoHeight;
+    container.appendChild(v);
+
+    const bitrateCanvas = document.createElement('canvas');
+    bitrateCanvas.id = id + 'BitrateCanvas';
+    bitrateCanvas.title = 'Bitrate';
+    container.appendChild(bitrateCanvas);
+
+    const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
+    bitrateGraph.updateEndDate();
+
+    bitrateSeries[id] = new TimelineDataSeries();
+    bitrateGraphs[id] = bitrateGraph;
+
+    const framerateCanvas = document.createElement('canvas');
+    framerateCanvas.id = id + 'FramerateCanvas';
+    framerateCanvas.title = 'Framerate';
+    container.appendChild(framerateCanvas);
+
+    const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
+    framerateGraph.updateEndDate();
+
+    framerateSeries[id] = new TimelineDataSeries();
+    framerateGraphs[id] = framerateGraph;
+}
+
 function draw(pc1, pc2) {
     pc1.getSenders()[0].getStats().then((res) => {
         res.forEach((report) => {
@@ -76,3 +113,4 @@ function draw(pc1, pc2) {
         lastRecvResult = res;
     });
 }
+
