@@ -14,11 +14,10 @@ function assert_active(pc1, pc2, layerToDeactivate) {
                             // should be 0
                             console.log('low-res track bytes received in last second', s.bytesReceived - initialStats.get(s.id).bytesReceived);
                         }
-                    }
+                    });
                 });
             });
         }, 1000); // query stats for 1 second
-      });
     }, 1000); // wait 1 second
 }
 
