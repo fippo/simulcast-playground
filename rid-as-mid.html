@@ -18,13 +18,6 @@ video {
   <h2>Remote Videos</h2>
 </div>
 <script>
-const bitrateSeries = {};
-const bitrateGraphs = {};
-const framerateSeries = {};
-const framerateGraphs = {};
-let lastSendResult;
-let lastRecvResult;
-
 function show(stream, isRemote) {
     const id = isRemote ? stream.id : 'local';
 
