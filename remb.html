@@ -77,7 +77,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     offer2.sdp = offer2.sdp.replace('a=ssrc:' + rtxSSRC3 + ' msid:' + msid[2], 'a=ssrc:' + rtxSSRC3 + ' msid:hi hi');
 
     offer2.sdp = offer2.sdp.replace(/a=msid:(.*)\r\n/, '');
-    offer2.sdp = offer2.sdp.replace(/transport-cc/g, 'goog-cc');
+    offer2.sdp = offer2.sdp.replace(/holmer/, 'that-guy');
     return Promise.all([
         pc1.setLocalDescription(offer),
         pc2.setRemoteDescription(offer2),
