@@ -138,7 +138,19 @@ const pc2 = new RTCPeerConnection({
 });
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
-pc2.ontrack = (e) => show(e.streams[0], true);
+pc2.ontrack = (e) => {
+      const transform = new TransformStream({
+        start() {},
+        flush() {},
+        transform: receiveTransform
+      });
+      const receiverStreams = e.receiver.createEncodedVideoStreams();
+      receiverStreams.readableStream
+          .pipeThrough(transform)
+          .pipeTo(receiverStreams.writableStream);
+	
+    show(e.streams[0], true);
+}
 
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
