@@ -134,7 +134,7 @@ const pc1 = new RTCPeerConnection({
 });
 const pc2 = new RTCPeerConnection({
     sdpSemantics: 'unified-plan',
-	forceEncodedVideoInsertableStreams: false,
+	forceEncodedVideoInsertableStreams: true,
 });
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
