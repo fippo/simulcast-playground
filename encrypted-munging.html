@@ -1,0 +1,255 @@
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
+<script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
+<script src="test-assert.js"></script>
+<script src="draw-graphs.js"></script>
+<style>
+video {
+  width: 320px;
+}
+</style>
+</head>
+<body>
+<div id="local">
+  <h2>Local Video</h2>
+</div>
+<div id="remotes">
+  <h2>Remote Videos</h2>
+</div>
+<script>
+const nativeCreateOffer = window.RTCPeerConnection.prototype.createOffer;
+window.RTCPeerConnection.prototype.createOffer = function() {
+  const offerOptions = arguments.length === 3 ? arguments[2] : arguments[0];
+  if (!(offerOptions && offerOptions.numberOfSimulcastLayers > 1)) {
+    return nativeCreateOffer.apply(this, arguments);
+  }
+  const {numberOfSimulcastLayers} = offerOptions;
+  delete offerOptions.numberOfSimulcastLayers;
+  return nativeCreateOffer.apply(this, arguments)
+    .then(({type, sdp}) => {
+      const sections = SDPUtils.splitSections(sdp);
+      /* sdp munging code. Really, its just extracting some information (ssrc, cname and msid) and reusing it.
+       * It could just set a different set of ssrc instead of trying to reuse the first.
+       */
+      // TODO: searching the (first?) video m-line would need to be generalized a bit.
+      let cname;
+      let msid;
+      SDPUtils.matchPrefix(sections[1], 'a=ssrc:').forEach(line => {
+          const media = SDPUtils.parseSsrcMedia(line);
+          if (media.attribute === 'cname') {
+              cname = media.value;
+          } else if (media.attribute === 'msid') {
+              msid = media.value;
+          }
+      });
+
+      const fidGroup = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ')[0].substr(17);
+      const lines = sections[1].trim().split('\r\n').filter(line => {
+          return line.indexOf('a=ssrc:') !== 0 && line.indexOf('a=ssrc-group:') !== 0;
+      });
+      const simSSRCs = [];
+      const [videoSSRC1, rtxSSRC1] = fidGroup.split(' ').map(ssrc => parseInt(ssrc, 10));
+      lines.push('a=ssrc:' + videoSSRC1 + ' cname:' + cname);
+      lines.push('a=ssrc:' + videoSSRC1 + ' msid:' + msid);
+      lines.push('a=ssrc:' + rtxSSRC1 + ' cname:' + cname);
+      lines.push('a=ssrc:' + rtxSSRC1 + ' msid:' + msid);
+      lines.push('a=ssrc-group:FID ' + videoSSRC1 + ' ' + rtxSSRC1);
+      simSSRCs.push(videoSSRC1);
+
+      if (numberOfSimulcastLayers >= 2) {
+        const videoSSRC2 = videoSSRC1 + 1;
+        const rtxSSRC2 = videoSSRC1 + 2;
+        lines.push('a=ssrc:' + videoSSRC2 + ' cname:' + cname);
+        lines.push('a=ssrc:' + videoSSRC2 + ' msid:' + msid);
+        lines.push('a=ssrc:' + rtxSSRC2 + ' cname:' + cname);
+        lines.push('a=ssrc:' + rtxSSRC2 + ' msid:' + msid);
+        lines.push('a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2);
+        simSSRCs.push(videoSSRC2);
+      }
+
+      if (numberOfSimulcastLayers >= 3) {
+        const videoSSRC3 = videoSSRC1 + 3;
+        const rtxSSRC3 = videoSSRC1 + 4;
+        lines.push('a=ssrc:' + videoSSRC3 + ' cname:' + cname);
+        lines.push('a=ssrc:' + videoSSRC3 + ' msid:' + msid);
+        lines.push('a=ssrc:' + rtxSSRC3 + ' cname:' + cname);
+        lines.push('a=ssrc:' + rtxSSRC3 + ' msid:' + msid);
+        lines.push('a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3);
+        simSSRCs.push(videoSSRC3);
+      }
+
+      lines.push('a=ssrc-group:SIM ' + simSSRCs.join(' '));
+      sections[1] = lines.join('\r\n') + '\r\n';
+      return new RTCSessionDescription({type, sdp: sections.join('')});
+    });
+}
+
+let currentCryptoKey;
+function sendTransform(chunk, controller) {
+  console.log('ST', chunk.synchronizationSource);
+  if (currentCryptoKey) {
+    const view = new DataView(chunk.data);
+    // Any length that is needed can be used for the new buffer.
+    const newData = new ArrayBuffer(chunk.data.byteLength + 4);
+    const newView = new DataView(newData);
+
+    for (let i = 0; i < chunk.data.byteLength; ++i) {
+      const keyByte = currentCryptoKey.charCodeAt(i % currentCryptoKey.length);
+      newView.setInt8(i, view.getInt8(i) ^ keyByte);
+    }
+    // Append checksum
+    newView.setUint32(chunk.data.byteLength, 0xDEADBEEF);
+
+    chunk.data = newData;
+  }
+  controller.enqueue(chunk);
+}
+
+function receiveTransform(chunk, controller) {
+  console.log('RT', chunk.synchronizationSource);
+  if (currentCryptoKey) {
+    const view = new DataView(chunk.data);
+    const checksum = view.getUint32(chunk.data.byteLength - 4);
+    if (checksum != 0xDEADBEEF) {
+      console.log('Corrupted frame received');
+      console.log(checksum.toString(16));
+    }
+    const newData = new ArrayBuffer(chunk.data.byteLength - 4);
+    const newView = new DataView(newData);
+    for (let i = 0; i < chunk.data.byteLength - 4; ++i) {
+      const keyByte = currentCryptoKey.charCodeAt(i % currentCryptoKey.length);
+      newView.setInt8(i, view.getInt8(i) ^ keyByte);
+    }
+    chunk.data = newData;
+  }
+  controller.enqueue(chunk);
+}
+
+const pc1 = new RTCPeerConnection({
+    sdpSemantics: 'unified-plan',
+	forceEncodedVideoInsertableStreams: true,
+});
+const pc2 = new RTCPeerConnection({
+    sdpSemantics: 'unified-plan',
+	forceEncodedVideoInsertableStreams: false,
+});
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => {
+      const transform = new TransformStream({
+        start() {},
+        flush() {},
+        transform: receiveTransform
+      });
+      const receiverStreams = e.receiver.createEncodedVideoStreams();
+      receiverStreams.readableStream
+          .pipeThrough(transform)
+          .pipeTo(receiverStreams.writableStream);
+	
+    show(e.streams[0], true);
+}
+
+navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
+.then((stream) => {
+    const sender = pc1.addTrack(stream.getVideoTracks()[0], stream);
+    const senderStreams = sender.createEncodedVideoStreams();
+    const senderTransformStream = new TransformStream({
+      start() {},
+      flush() {},
+      transform: sendTransform
+    });
+    senderStreams.readableStream
+        .pipeThrough(senderTransformStream)
+        .pipeTo(senderStreams.writableStream);
+    show(stream, false);
+    return pc1.createOffer({numberOfSimulcastLayers: 3});
+})
+.then((offer) => {
+    const sections = SDPUtils.splitSections(offer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+
+    // unified plan things.
+    rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
+        return ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id' &&
+            ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id' &&
+            ext.uri !== 'urn:ietf:params:rtp-hdrext:sdes:mid';
+    });
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'actpass') +
+      SDPUtils.writeIceParameters(ice) +
+      'a=group:BUNDLE 0 1 2\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+
+    const fidGroups = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ');
+    if (fidGroups.length > 0) {
+      const [videoSSRC1, rtxSSRC1] = fidGroups[0].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=mid:0\r\n' +
+          'a=msid:low low\r\n' +
+          'a=ssrc:' + videoSSRC1 + ' cname:something\r\n';
+          'a=ssrc:' + rtxSSRC1 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC1 + ' ' + rtxSSRC1 + '\r\n';
+    }
+    if (fidGroups.length > 1) {
+      const [videoSSRC2, rtxSSRC2] = fidGroups[1].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=mid:1\r\n' +
+          'a=msid:mid mid\r\n' +
+          'a=ssrc:' + videoSSRC2 + ' cname:something\r\n' +
+          'a=ssrc:' + rtxSSRC2 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2 + '\r\n';
+    }
+    if (fidGroups.length > 2) {
+      const [videoSSRC3, rtxSSRC3] = fidGroups[2].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=mid:2\r\n' +
+          'a=msid:hi hi\r\n' +
+          'a=ssrc:' + videoSSRC3 + ' cname:something\r\n' +
+          'a=ssrc:' + rtxSSRC3 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3 + '\r\n';
+    }
+    return Promise.all([
+        pc1.setLocalDescription(offer),
+        pc2.setRemoteDescription({
+            type: 'offer',
+            sdp,
+        }),
+    ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
+    const sections = SDPUtils.splitSections(answer.sdp);
+    const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
+    const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
+    const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    let sdp = SDPUtils.writeSessionBoilerplate() +
+      SDPUtils.writeDtlsParameters(dtls, 'active') +
+      SDPUtils.writeIceParameters(ice) +
+      'a=group:BUNDLE 0\r\n' +
+      'a=msid-semantic:WMS *\r\n';
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    sdp += codecs;
+
+    return Promise.all([
+        pc2.setLocalDescription(answer),
+        pc1.setRemoteDescription({
+            type: 'answer',
+            sdp
+        }),
+    ]);
+})
+.then(() => {
+    window.setInterval(() => {
+        draw(pc1, pc2);
+    }, 2000);
+})
+.catch(e => console.error(e));
+</script>
+</body>
+</html>
