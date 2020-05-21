@@ -34,10 +34,12 @@ const extensionsToFilter = [
 const rids = [0, 1, 2];
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
+
     pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
         sendEncodings: rids.map(rid => {rid}),
     });
+    
     show(stream, false);
     return pc1.createOffer();
 })
@@ -69,14 +71,17 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:' + rids[0] + '\r\n' +
+        'a=rtcp-mux' + '\r\n' +
         'a=msid:low low\r\n';
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:' + rids[1] + '\r\n' +
+        'a=rtcp-mux' + '\r\n' +
         'a=msid:mid mid\r\n';
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:' + rids[2] + '\r\n' +
+        'a=rtcp-mux' + '\r\n' +
         'a=msid:hi hi\r\n';
 
     return Promise.all([
@@ -111,6 +116,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     });
     sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
     sdp += 'a=mid:' + SDPUtils.getMid(SDPUtils.splitSections(pc1.localDescription.sdp)[1]) + '\r\n';
+    sdp += 'a=rtcp-mux' + '\r\n';
 
     // Re-add headerextensions we filtered.
     const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
