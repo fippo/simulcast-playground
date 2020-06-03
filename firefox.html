@@ -51,6 +51,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
     const ssrcs = SDPUtils.matchPrefix(sections[1], 'a=ssrc:');
     const midPrefix = adapter.browserDetails.version < 63 ? 'sdparta_' : '';
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
         return !extensionsToFilter.includes(ext.uri);
     });
@@ -59,7 +60,11 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE ' + midPrefix + '0 ' + midPrefix + '1 ' + midPrefix + '2\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
     sdp += codecs +
         'a=mid:' + midPrefix + '0\r\n' +
         'a=msid:low low\r\n' +
@@ -92,7 +97,12 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
       'a=group:BUNDLE ' + localMid + '\r\n' +
       'a=msid-semantic:WMS *\r\n';
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
     sdp += codecs +
         'a=mid:' + localMid + '\r\n';
 

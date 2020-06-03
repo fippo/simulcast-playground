@@ -104,6 +104,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
 
     // unified plan things.
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
@@ -116,7 +117,11 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0 1 2\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
 
     const fidGroups = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ');
     if (fidGroups.length > 0) {
@@ -160,12 +165,17 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'active') +
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
     sdp += codecs;
 
     return Promise.all([

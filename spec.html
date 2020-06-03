@@ -90,12 +90,17 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         return !extensionsToFilter.includes(ext.uri);
     });
     rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'actpass') +
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:0\r\n';

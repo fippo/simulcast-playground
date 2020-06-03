@@ -46,6 +46,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
 
     // The gist of this hack is that rid and mid have the same wire format.
     // Kudos to orphis for this clever hack!
@@ -65,7 +66,11 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0 1 2\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:' + rids[0] + '\r\n' +
@@ -93,6 +98,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
+    const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
     // Avoid duplicating the mid extension even though Chrome does not care (boo!)
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
         return !extensionsToFilter.includes(ext.uri);
@@ -102,7 +108,11 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters);
+    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+        SDPUtils.writeRtcpParameters({
+            mux:rtcpParameters.mux,
+            reducedSize: rtcpParameters.reducedSize,
+        });
     sdp += codecs;
     sdp += 'a=setup:active\r\n';
 
