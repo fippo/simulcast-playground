@@ -34,10 +34,14 @@ window.RTCPeerConnection.prototype.createOffer = function() {
       /* sdp munging code. Really, its just extracting some information (ssrc, cname and msid) and reusing it.
        * It could just set a different set of ssrc instead of trying to reuse the first.
        */
-      // TODO: searching the (first?) video m-line would need to be generalized a bit.
+      const firstVideoIndex = sections.findIndex(s => SDPUtils.getKind(s) === 'video');
+      if (firstVideoIndex === -1) {
+        return new RTCSessionDescription({type, sdp});
+      }
+
       let cname;
       let msid;
-      SDPUtils.matchPrefix(sections[1], 'a=ssrc:').forEach(line => {
+      SDPUtils.matchPrefix(sections[firstVideoIndex], 'a=ssrc:').forEach(line => {
           const media = SDPUtils.parseSsrcMedia(line);
           if (media.attribute === 'cname') {
               cname = media.value;
@@ -46,8 +50,8 @@ window.RTCPeerConnection.prototype.createOffer = function() {
           }
       });
 
-      const fidGroup = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ')[0].substr(17);
-      const lines = sections[1].trim().split('\r\n').filter(line => {
+      const fidGroup = SDPUtils.matchPrefix(sections[firstVideoIndex], 'a=ssrc-group:FID ')[0].substr(17);
+      const lines = sections[firstVideoIndex].trim().split('\r\n').filter(line => {
           return line.indexOf('a=ssrc:') !== 0 && line.indexOf('a=ssrc-group:') !== 0;
       });
       const simSSRCs = [];
@@ -82,7 +86,7 @@ window.RTCPeerConnection.prototype.createOffer = function() {
       }
 
       lines.push('a=ssrc-group:SIM ' + simSSRCs.join(' '));
-      sections[1] = lines.join('\r\n') + '\r\n';
+      sections[firstVideoIndex] = lines.join('\r\n') + '\r\n';
       return new RTCSessionDescription({type, sdp: sections.join('')});
     });
 }
