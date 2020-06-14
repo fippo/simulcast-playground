@@ -31,7 +31,7 @@ function show(stream, isRemote) {
     const bitrateGraph = new TimelineGraphView(id + 'Container', id + 'BitrateCanvas');
     bitrateGraph.updateEndDate();
 
-    bitrateSeries[id] = new TimelineDataSeries();
+    bitrateSeries[id] = id === 'local' ? new Map() : new TimelineDataSeries();
     bitrateGraphs[id] = bitrateGraph;
 
     const framerateCanvas = document.createElement('canvas');
@@ -42,37 +42,57 @@ function show(stream, isRemote) {
     const framerateGraph = new TimelineGraphView(id + 'Container', id + 'FramerateCanvas');
     framerateGraph.updateEndDate();
 
-    framerateSeries[id] = new TimelineDataSeries();
+    framerateSeries[id] = id === 'local' ? new Map() : new TimelineDataSeries();
     framerateGraphs[id] = framerateGraph;
 }
 
 function draw(pc1, pc2) {
     pc1.getSenders()[0].getStats().then((res) => {
+        const graphName = 'local';
         res.forEach((report) => {
             if (report.type === 'outbound-rtp') {
                 const now = report.timestamp;
                 const bytes = report.bytesSent;
                 const frames = report.framesEncoded;
                 if (lastSendResult && lastSendResult.get(report.id)) {
-                    const graphName = 'local';
+                    const ssrc = report.ssrc;
 
                     // calculate bitrate
                     const bitrate = 8000 * (bytes - lastSendResult.get(report.id).bytesSent) /
                         (now - lastSendResult.get(report.id).timestamp);
+                    if (!bitrateSeries[graphName].has(ssrc)) {
+                        const series = new TimelineDataSeries();
+                        bitrateSeries[graphName].set(ssrc, series);
+                        if (bitrateSeries[graphName].size === 2) {
+                            series.setColor('green');
+                        } else if (bitrateSeries[graphName].size === 3) {
+                            series.setColor('blue');
+                        }
+                    }
 
-                    bitrateSeries[graphName].addPoint(now, bitrate);
-                    bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
-                    bitrateGraphs[graphName].updateEndDate();
+                    bitrateSeries[graphName].get(ssrc).addPoint(now, bitrate);
 
                     //  calculate framerate.
                     const framerate = 1000 * (frames - lastSendResult.get(report.id).framesEncoded) /
                         (now - lastSendResult.get(report.id).timestamp);
-                    framerateSeries[graphName].addPoint(now, framerate);
-                    framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
-                    framerateGraphs[graphName].updateEndDate();
+                    if (!framerateSeries[graphName].has(ssrc)) {
+                        const series = new TimelineDataSeries();
+                        framerateSeries[graphName].set(ssrc, series);
+                        if (framerateSeries[graphName].size === 2) {
+                            series.setColor('green');
+                        } else if (framerateSeries[graphName].size === 3) {
+                            series.setColor('blue');
+                        }
+                    }
+                    framerateSeries[graphName].get(ssrc).addPoint(now, framerate);
                 }
             }
         });
+        bitrateGraphs[graphName].setDataSeries(Array.from(bitrateSeries[graphName].values()));
+        bitrateGraphs[graphName].updateEndDate();
+
+        framerateGraphs[graphName].setDataSeries(Array.from(framerateSeries[graphName].values()));
+        framerateGraphs[graphName].updateEndDate();
         lastSendResult = res;
     });
     pc2.getStats().then((res) => {
