@@ -36,7 +36,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
     pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
-        sendEncodings: rids.map(rid => {rid}),
+        sendEncodings: rids.map(rid => ({rid})),
     });
     show(stream, false);
     return pc1.createOffer();
