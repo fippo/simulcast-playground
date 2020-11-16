@@ -65,19 +65,37 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
             mux:rtcpParameters.mux,
             reducedSize: rtcpParameters.reducedSize,
         });
-    sdp += codecs +
-        'a=mid:' + midPrefix + '0\r\n' +
-        'a=msid:low low\r\n' +
-        ssrcs[0] + '\r\n';
-    sdp += codecs +
-        'a=mid:' + midPrefix + '1\r\n' +
-        'a=msid:mid mid\r\n' +
-        ssrcs[1] + '\r\n';
-    sdp += codecs +
-        'a=mid:' + midPrefix + '2\r\n' +
-        'a=msid:hi hi\r\n' +
-        ssrcs[2] + '\r\n';
-    ssrc2track = ssrcs.map(line => (line.split(' ')[0].split(':')[1] >>> 0));
+    const fidGroups = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ');
+    if (fidGroups.length > 0) {
+      const [videoSSRC1, rtxSSRC1] = fidGroups[0].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+      sdp += codecs +
+          'a=mid:' + midPrefix + '0\r\n' +
+          'a=msid:low low\r\n' +
+          'a=ssrc:' + videoSSRC1 + ' cname:something\r\n' +
+          'a=ssrc:' + rtxSSRC1 + ' cname:something\r\n' +
+          'a=ssrc-group:FID ' + videoSSRC1 + ' ' + rtxSSRC1 + '\r\n';
+      }
+      if (fidGroups.length > 1) {
+        const [videoSSRC2, rtxSSRC2] = fidGroups[1].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+        sdp += codecs +
+            'a=mid:' + midPrefix + '1\r\n' +
+            'a=msid:mid mid\r\n' +
+            'a=ssrc:' + videoSSRC2 + ' cname:something\r\n' +
+            'a=ssrc:' + rtxSSRC2 + ' cname:something\r\n' +
+            'a=ssrc-group:FID ' + videoSSRC2 + ' ' + rtxSSRC2 + '\r\n';
+      }
+      if (fidGroups.length > 2) {
+        const [videoSSRC3, rtxSSRC3] = fidGroups[2].substr(17).split(' ').map(ssrc => parseInt(ssrc, 10));
+        sdp += codecs +
+            'a=mid:' + midPrefix + '2\r\n' +
+            'a=msid:hi hi\r\n' +
+            'a=ssrc:' + videoSSRC3 + ' cname:something\r\n' +
+            'a=ssrc:' + rtxSSRC3 + ' cname:something\r\n' +
+            'a=ssrc-group:FID ' + videoSSRC3 + ' ' + rtxSSRC3 + '\r\n';
+      }
+      ssrc2track = [fidGroups[0].substr(17).split(' ')[0],
+                    fidGroups[1].substr(17).split(' ')[0],
+                    fidGroups[2].substr(17).split(' ')[0]].map(ssrc => parseInt(ssrc, 10));
     return Promise.all([
         pc1.setLocalDescription(offer),
         pc2.setRemoteDescription({type: 'offer', sdp})
