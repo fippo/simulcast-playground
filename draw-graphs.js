@@ -70,7 +70,9 @@ function draw(pc1, pc2) {
                         }
                     }
 
-                    bitrateSeries[graphName].get(ssrc).addPoint(now, bitrate);
+                    if (bitrate >= 0) {
+                        bitrateSeries[graphName].get(ssrc).addPoint(now, bitrate);
+                    }
 
                     //  calculate framerate.
                     const framerate = 1000 * (frames - lastSendResult.get(report.id).framesEncoded) /
@@ -84,7 +86,9 @@ function draw(pc1, pc2) {
                             series.setColor('blue');
                         }
                     }
-                    framerateSeries[graphName].get(ssrc).addPoint(now, framerate);
+                    if (framerate >= 0) {
+                        framerateSeries[graphName].get(ssrc).addPoint(now, framerate);
+                    }
                 }
             }
         });
