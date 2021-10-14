@@ -133,7 +133,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       sdp += codecs +
           'a=mid:0\r\n' +
           'a=msid:low low\r\n' +
-          'a=ssrc:' + videoSSRC1 + ' cname:something\r\n';
+          'a=ssrc:' + videoSSRC1 + ' cname:something\r\n' +
           'a=ssrc:' + rtxSSRC1 + ' cname:something\r\n' +
           'a=ssrc-group:FID ' + videoSSRC1 + ' ' + rtxSSRC1 + '\r\n';
     }
