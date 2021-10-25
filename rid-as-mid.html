@@ -61,6 +61,9 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
     // and ramp-up is slower.
     rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
 
+    // Filter RED as this makes wireshark dumps harder.
+    rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RED');
+
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'actpass') +
       SDPUtils.writeIceParameters(ice) +
