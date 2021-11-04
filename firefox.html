@@ -55,6 +55,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
         return !extensionsToFilter.includes(ext.uri);
     });
+    const hasRtx = !!rtpParameters.codecs.find(c => c.name.toUpperCase() === 'RTX');
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'actpass') +
       SDPUtils.writeIceParameters(ice) +
@@ -65,18 +66,40 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
             mux:rtcpParameters.mux,
             reducedSize: rtcpParameters.reducedSize,
         });
-    sdp += codecs +
-        'a=mid:' + midPrefix + '0\r\n' +
-        'a=msid:low low\r\n' +
-        ssrcs[0] + '\r\n';
-    sdp += codecs +
-        'a=mid:' + midPrefix + '1\r\n' +
-        'a=msid:mid mid\r\n' +
-        ssrcs[1] + '\r\n';
-    sdp += codecs +
-        'a=mid:' + midPrefix + '2\r\n' +
-        'a=msid:hi hi\r\n' +
-        ssrcs[2] + '\r\n';
+    if (hasRtx) {
+        const fidGroups = SDPUtils.matchPrefix(sections[1], 'a=ssrc-group:FID ');
+        sdp += codecs +
+            'a=mid:' + midPrefix + '0\r\n' +
+            'a=msid:low low\r\n' +
+            ssrcs[0] + '\r\n' +
+            ssrcs[1] + '\r\n' +
+            fidGroups[0] + '\r\n';
+        sdp += codecs +
+            'a=mid:' + midPrefix + '1\r\n' +
+            'a=msid:mid mid\r\n' +
+            ssrcs[2] + '\r\n' +
+            ssrcs[3] + '\r\n' +
+            fidGroups[1] + '\r\n';
+        sdp += codecs +
+            'a=mid:' + midPrefix + '2\r\n' +
+            'a=msid:hi hi\r\n' +
+            ssrcs[4] + '\r\n' +
+            ssrcs[5] + '\r\n' +
+            fidGroups[2] + '\r\n';
+    } else {
+        sdp += codecs +
+            'a=mid:' + midPrefix + '0\r\n' +
+            'a=msid:low low\r\n' +
+            ssrcs[0] + '\r\n';
+        sdp += codecs +
+            'a=mid:' + midPrefix + '1\r\n' +
+            'a=msid:mid mid\r\n' +
+            ssrcs[1] + '\r\n';
+        sdp += codecs +
+            'a=mid:' + midPrefix + '2\r\n' +
+            'a=msid:hi hi\r\n' +
+            ssrcs[2] + '\r\n';
+    }
     ssrc2track = ssrcs.map(line => (line.split(' ')[0].split(':')[1] >>> 0));
     return Promise.all([
         pc1.setLocalDescription(offer),
