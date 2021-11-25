@@ -34,10 +34,44 @@ const extensionsToFilter = [
 const rids = [0, 1, 2];
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
+
+    console.log("Before addTransciver");
+    var t = pc1.getTransceivers();
+    console.log(t);
+   
+    if (t.length > 0) { 
+        var sender = t[0].sender;
+        var params = sender.getParameters();
+        console.log("Sender parameters");
+        console.log(params);
+    }
+
     pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
-        sendEncodings: rids.map(rid => ({rid})),
+        sendEncodings: [
+                        {
+                            rid: "0",
+                        },
+                        {
+                            rid: "1",
+                            scaleResolutionDownBy: 2.0
+                        },
+                        {
+                            rid: "2",
+                            scaleResolutionDownBy: 6.0
+                        }
+        ]
     });
+    
+    console.log("After addTransciver");
+    var t = pc1.getTransceivers();
+    console.log(t);
+    
+    sender = t[0].sender;
+    params = sender.getParameters();
+    console.log("Sender parameters");
+    console.log(params);
+    
     show(stream, false);
     return pc1.createOffer();
 })
@@ -87,13 +121,38 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         'a=mid:' + rids[2] + '\r\n' +
         'a=msid:hi hi\r\n';
 
+    console.log("Before setLocalDescription");
+    var t = pc1.getTransceivers();
+    console.log(t);
+    
+    var sender = t[0].sender;
+    var params = sender.getParameters();
+    console.log("Sender parameters");
+    console.log(params);
+
+    console.log("setLocalDescription: sdp:");
+    console.log(offer.sdp);
+    
+    console.log("setRemoteDescription: sdp:");
+    console.log(sdp);
+
     return Promise.all([
         pc1.setLocalDescription(offer),
         pc2.setRemoteDescription({
             type: 'offer',
             sdp,
         }),
-    ]);
+    ]).then( data => {
+        
+        console.log("After setLocalDescription");
+        var t = pc1.getTransceivers();
+        console.log(t);
+    
+        var sender = t[0].sender;
+        var params = sender.getParameters();
+        console.log("Sender parameters");
+        console.log(params);
+    });
 })
 .then(() => pc2.createAnswer())
 .then(answer => {
