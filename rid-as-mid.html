@@ -19,6 +19,7 @@ video {
 <div id="remotes">
   <h2>Remote Videos</h2>
 </div>
+<p>Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec</p>
 <script>
 const pc1 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
 const pc2 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
@@ -42,7 +43,13 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
       const searchParameters = new URLSearchParams(window.location.search);
       if (searchParameters.has('codec') && ['vp8', 'h264'].includes(searchParameters.get('codec'))) {
         const codecs = RTCRtpSender.getCapabilities('video').codecs
-            .filter(c => c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec'));
+            .filter(c => {
+                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec');
+            })
+            .filter(c => {
+                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile'));
+            });
+        console.log('restricted codecs', codecs)
         transceiver.setCodecPreferences(codecs);
       }
     }
