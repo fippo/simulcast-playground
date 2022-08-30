@@ -34,10 +34,18 @@ const extensionsToFilter = [
 const rids = [0, 1, 2];
 navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
 .then((stream) => {
-    pc1.addTransceiver(stream.getVideoTracks()[0], {
+    const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
         sendEncodings: rids.map(rid => ({rid})),
     });
+    if (window.location.search) {
+      const searchParameters = new URLSearchParams(window.location.search);
+      if (searchParameters.has('codec') && ['vp8', 'h264'].includes(searchParameters.get('codec'))) {
+        const codecs = RTCRtpSender.getCapabilities('video').codecs
+            .filter(c => c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec'));
+        transceiver.setCodecPreferences(codecs);
+      }
+    }
     show(stream, false);
     return pc1.createOffer();
 })
