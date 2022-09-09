@@ -3,6 +3,8 @@ const bitrateSeries = {};
 const bitrateGraphs = {};
 const framerateSeries = {};
 const framerateGraphs = {};
+const qpSeries = {};
+const qpGraphs = {};
 let lastSendResult;
 let lastRecvResult;
 
@@ -44,6 +46,17 @@ function show(stream, isRemote) {
 
     framerateSeries[id] = id === 'local' ? new Map() : new TimelineDataSeries();
     framerateGraphs[id] = framerateGraph;
+
+    const qpCanvas = document.createElement('canvas');
+    qpCanvas.id = id + 'qpCanvas';
+    qpCanvas.title = 'qp';
+    container.appendChild(qpCanvas);
+
+    const qpGraph = new TimelineGraphView(id + 'Container', id + 'qpCanvas');
+    qpGraph.updateEndDate();
+
+    qpSeries[id] = id === 'local' ? new Map() : new TimelineDataSeries();
+    qpGraphs[id] = qpGraph;
 }
 
 async function draw(pc1, pc2) {
@@ -89,6 +102,22 @@ async function draw(pc1, pc2) {
             if (framerate >= 0) {
                 framerateSeries[graphName].get(ssrc).addPoint(now, framerate);
             }
+
+            // calculate qp-per-frame
+            if (report.qpSum) {
+                const qp = (report.qpSum - lastSendResult.get(report.id).qpSum) /
+                    (report.framesEncoded - lastSendResult.get(report.id).framesEncoded);
+                if (!qpSeries[graphName].has(ssrc)) {
+                    const series = new TimelineDataSeries();
+                    qpSeries[graphName].set(ssrc, series);
+                    if (qpSeries[graphName].size === 2) {
+                        series.setColor('green');
+                    } else if (qpSeries[graphName].size === 3) {
+                        series.setColor('blue');
+                    }
+                }
+                qpSeries[graphName].get(ssrc).addPoint(now, qp);
+            }
         }
     });
     bitrateGraphs[graphName].setDataSeries(Array.from(bitrateSeries[graphName].values()));
@@ -96,6 +125,10 @@ async function draw(pc1, pc2) {
 
     framerateGraphs[graphName].setDataSeries(Array.from(framerateSeries[graphName].values()));
     framerateGraphs[graphName].updateEndDate();
+
+    qpGraphs[graphName].setDataSeries(Array.from(qpSeries[graphName].values()));
+    qpGraphs[graphName].updateEndDate();
+
     lastSendResult = res1;
 
     const res2 = await pc2.getStats();
@@ -130,6 +163,15 @@ async function draw(pc1, pc2) {
             framerateSeries[graphName].addPoint(now, framerate);
             framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
             framerateGraphs[graphName].updateEndDate();
+
+            // calculate qp-per-frame
+            if (report.qpSum) {
+                const qp = (report.qpSum - lastRecvResult.get(report.id).qpSum) /
+                    (report.framesDecoded - lastRecvResult.get(report.id).framesDecoded);
+                qpSeries[graphName].addPoint(now, qp);
+                qpGraphs[graphName].setDataSeries([qpSeries[graphName]]);
+                qpGraphs[graphName].updateEndDate();
+            }
         }
     });
     lastRecvResult = res2;
