@@ -21,6 +21,8 @@ video {
 </div>
 <p>Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec</p>
 <script>
+const searchParameters = new URLSearchParams(window.location.search);
+
 const pc1 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
 const pc2 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
@@ -39,9 +41,7 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
         streams: [stream],
         sendEncodings: rids.map(rid => ({rid})),
     });
-    if (window.location.search) {
-      const searchParameters = new URLSearchParams(window.location.search);
-      if (searchParameters.has('codec') && ['vp8', 'h264'].includes(searchParameters.get('codec'))) {
+    if (searchParameters.has('codec') && ['vp8', 'h264'].includes(searchParameters.get('codec'))) {
         const codecs = RTCRtpSender.getCapabilities('video').codecs
             .filter(c => {
                 return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec');
@@ -51,7 +51,6 @@ navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
             });
         console.log('restricted codecs', codecs)
         transceiver.setCodecPreferences(codecs);
-      }
     }
     show(stream, false);
     return pc1.createOffer();
