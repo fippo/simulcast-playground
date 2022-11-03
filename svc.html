@@ -1,0 +1,92 @@
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<style>
+video {
+  width: 320px;
+}
+</style>
+</head>
+<body>
+<div>
+  <h2>Local Video</h2>
+  <video id="local" autoplay muted>
+</div>
+<div id="remotes">
+  <h2>Remote Videos</h2>
+  <video id="remote" autoplay muted>
+</div>
+<script>
+const pc1 = new RTCPeerConnection({encodedInsertableStreams: true});
+const pc2 = new RTCPeerConnection({encodedInsertableStreams: false});
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+
+let scalabilityMode = 'L3T3';
+let mimeType = 'video/VP9';
+const sent = {};
+const counts = {};
+
+function sendTransform(encodedFrame, controller) {
+    const metadata = encodedFrame.getMetadata();
+    //console.log('SEND', metadata.frameId, encodedFrame.type, metadata.width, metadata.height, metadata.spatialIndex, metadata.temporalIndex);
+    // TODO: spatialIndex does not seem to be set correctly?
+    if (!sent[metadata.spatialIndex]) {
+        sent[metadata.spatialIndex] = [];
+        counts[metadata.spatialIndex] = [0, 0, 0];
+    }
+    sent[metadata.spatialIndex][metadata.temporalIndex] = true;
+    counts[metadata.spatialIndex][metadata.temporalIndex]++;
+    console.log(metadata);
+    if (metadata.spatialIndex !== 0) {
+        return;
+    }
+    controller.enqueue(encodedFrame);
+}
+
+pc2.ontrack = (e) => {
+    document.getElementById('remote').srcObject = e.streams[0];
+}
+
+navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
+.then((stream) => {
+    const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
+        streams: [stream],
+        sendEncodings: [{scalabilityMode}],
+    });
+    const senderStreams = transceiver.sender.createEncodedStreams();
+    const transformStream = new TransformStream({
+        transform: sendTransform,
+    });
+    senderStreams.readable
+      .pipeThrough(transformStream)
+      .pipeTo(senderStreams.writable);
+    document.getElementById('local').srcObject = stream;
+
+    const codecs = RTCRtpSender.getCapabilities('video').codecs;
+    const selectedCodecIndex = codecs.findIndex(c => c.mimeType === mimeType);
+    const selectedCodec = codecs[selectedCodecIndex];
+    codecs.splice(selectedCodecIndex, 1);
+    codecs.unshift(selectedCodec);
+    transceiver.setCodecPreferences(codecs);
+    return pc1.createOffer();
+})
+.then((offer) => {
+    offer.sdp += 'a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/generic-frame-descriptor-00\r\n';
+    return Promise.all([
+        pc1.setLocalDescription(offer),
+        pc2.setRemoteDescription(offer),
+    ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
+    return Promise.all([
+        pc2.setLocalDescription(answer),
+        pc1.setRemoteDescription(answer),
+    ]);
+})
+.catch(e => console.error(e));
+</script>
+</body>
+</html>
