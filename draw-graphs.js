@@ -143,7 +143,8 @@ async function draw(pc1, pc2) {
                 const graphId = ssrc2track.indexOf(report.ssrc >>> 0);
                 graphName = ['low', 'mid', 'hi'][graphId];
             } else {
-                graphName = res2.get(report.trackId).trackIdentifier;
+                // Prefer inbound-rtp.trackIdentifier, fall back to deprecated track stats trackIdentifier.
+                graphName = report.trackIdentifier || res2.get(report.trackId).trackIdentifier;
             }
             if (!bitrateSeries[graphName]) {
                 return;
