@@ -76,7 +76,8 @@ async function draw(pc1, pc2) {
         const now = report.timestamp;
         const bytes = report.bytesSent;
         const frames = report.framesEncoded;
-        sentKeyframes[report.rid] = report.keyFramesEncoded;
+        // For non-spec simulcast there is no rid.
+        sentKeyframes[report.rid || report.ssrc] = report.keyFramesEncoded;
         encoders[report.rid] = report.encoderImplementation;
         if (lastSendResult && lastSendResult.get(report.id)) {
             const ssrc = report.ssrc;
