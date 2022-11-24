@@ -17,6 +17,7 @@ function show(stream, isRemote) {
 
     const container = document.createElement('div');
     container.id = id + 'Container';
+    container.style.display = 'inline-flex';
     document.getElementById(isRemote ? 'remotes' : 'local').appendChild(container);
 
     const v = document.createElement('video');
@@ -57,16 +58,26 @@ function show(stream, isRemote) {
 
     qpSeries[id] = id === 'local' ? new Map() : new TimelineDataSeries();
     qpGraphs[id] = qpGraph;
+
+    const current = document.createElement('span');
+    current.id = id + '_currentData';
+    current.style['padding-left'] = '10px';
+    current.innerText = 'Stream: ' + id;
+    container.appendChild(current);
 }
 
 async function draw(pc1, pc2) {
-    const graphName = 'local';
     const res1 = await pc1.getSenders()[0].getStats();
+    const sentKeyframes = {};
+    const encoders = {};
     res1.forEach((report) => {
         if (report.type !== 'outbound-rtp') return;
+        const graphName = 'local';
         const now = report.timestamp;
         const bytes = report.bytesSent;
         const frames = report.framesEncoded;
+        sentKeyframes[report.rid] = report.keyFramesEncoded;
+        encoders[report.rid] = report.encoderImplementation;
         if (lastSendResult && lastSendResult.get(report.id)) {
             const ssrc = report.ssrc;
 
@@ -120,14 +131,19 @@ async function draw(pc1, pc2) {
             }
         }
     });
-    bitrateGraphs[graphName].setDataSeries(Array.from(bitrateSeries[graphName].values()));
-    bitrateGraphs[graphName].updateEndDate();
+    if (document.getElementById('local_currentData')) {
+        document.getElementById('local_currentData').innerText = 'Stream: local\n' + Object.keys(sentKeyframes).sort().map(rid => {
+            return 'rid=' + rid + ': keyframes=' + sentKeyframes[rid] + (encoders[rid] ? ', encoder=' + encoders[rid] : '');
+        }).join('\n');
+    }
+    bitrateGraphs['local'].setDataSeries(Array.from(bitrateSeries['local'].values()));
+    bitrateGraphs['local'].updateEndDate();
 
-    framerateGraphs[graphName].setDataSeries(Array.from(framerateSeries[graphName].values()));
-    framerateGraphs[graphName].updateEndDate();
+    framerateGraphs['local'].setDataSeries(Array.from(framerateSeries['local'].values()));
+    framerateGraphs['local'].updateEndDate();
 
-    qpGraphs[graphName].setDataSeries(Array.from(qpSeries[graphName].values()));
-    qpGraphs[graphName].updateEndDate();
+    qpGraphs['local'].setDataSeries(Array.from(qpSeries['local'].values()));
+    qpGraphs['local'].updateEndDate();
 
     lastSendResult = res1;
 
@@ -172,6 +188,14 @@ async function draw(pc1, pc2) {
                 qpSeries[graphName].addPoint(now, qp);
                 qpGraphs[graphName].setDataSeries([qpSeries[graphName]]);
                 qpGraphs[graphName].updateEndDate();
+            }
+
+            if (document.getElementById(graphName + '_currentData')) {
+                document.getElementById(graphName + '_currentData').innerText =
+                    'Stream: ' + graphName +
+                    '\nmid=' + report.mid +
+                    '\nkeyframes=' + report.keyFramesDecoded +
+                    (report.decoderImplementation ? '\ndecoder=' + report.decoderImplementation : '\n');
             }
         }
     });
