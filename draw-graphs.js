@@ -64,6 +64,7 @@ function show(stream, isRemote) {
     current.style['padding-left'] = '10px';
     current.innerText = 'Stream: ' + id;
     container.appendChild(current);
+    container.appendChild(document.createElement('br'));
 }
 
 async function draw(pc1, pc2) {
