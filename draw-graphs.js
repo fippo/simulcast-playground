@@ -19,6 +19,7 @@ function show(stream, isRemote) {
     container.id = id + 'Container';
     container.style.display = 'inline-flex';
     document.getElementById(isRemote ? 'remotes' : 'local').appendChild(container);
+    document.getElementById(isRemote ? 'remotes' : 'local').appendChild(document.createElement('br'));
 
     const v = document.createElement('video');
     v.autoplay = true;
@@ -64,7 +65,6 @@ function show(stream, isRemote) {
     current.style['padding-left'] = '10px';
     current.innerText = 'Stream: ' + id;
     container.appendChild(current);
-    container.appendChild(document.createElement('br'));
 }
 
 async function draw(pc1, pc2) {
