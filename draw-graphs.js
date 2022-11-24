@@ -192,12 +192,22 @@ async function draw(pc1, pc2) {
                 qpGraphs[graphName].updateEndDate();
             }
 
-            if (document.getElementById(graphName + '_currentData')) {
-                document.getElementById(graphName + '_currentData').innerText =
+            const currentData = document.getElementById(graphName + '_currentData');
+            if (currentData) {
+                currentData.innerText =
                     'Stream: ' + graphName +
                     '\nmid=' + report.mid +
-                    '\nkeyframes=' + report.keyFramesDecoded +
-                    (report.decoderImplementation ? '\ndecoder=' + report.decoderImplementation : '\n');
+                    '\nkeyframes=' + report.keyFramesDecoded;
+                if (report.codecId) {
+                    const codec = res2.get(report.codecId);
+                    currentData.innerText += '\ncodec=' + codec.mimeType;
+                    if (codec.sdpFmtpLine) {
+                        currentData.innerText += ' ' + codec.sdpFmtpLine;
+                    }
+                }
+                if (report.decoderImplementation) {
+                    currentData.innerText += '\ndecoder=' + report.decoderImplementation;
+                }
             }
         }
     });
