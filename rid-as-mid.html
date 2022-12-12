@@ -22,7 +22,10 @@ video {
 <div id="remotes">
   <h2>Remote Videos</h2>
 </div>
-<p>Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec</p>
+<p>
+  Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec.
+  The ?resolution=<i>1080p|720p|360p</i> parameter restricts the getUserMedia resolution.
+</p>
 <script>
 const searchParameters = new URLSearchParams(window.location.search);
 
@@ -38,7 +41,12 @@ const extensionsToFilter = [
     'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
 ];
 const rids = [0, 1, 2];
-navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}})
+const video = {
+  '1080p': {width: 1920, height: 1080},
+  '720p': {width: 1280, height: 720},
+  '360p': {width: 640, height: 360},
+}[searchParameters.get('resolution') || '720p'];
+navigator.mediaDevices.getUserMedia({video})
 .then((stream) => {
     const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
