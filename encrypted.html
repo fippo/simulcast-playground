@@ -2,7 +2,6 @@
 <head>
 <meta charset="utf-8">
 <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
 <script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
 <script src="test-assert.js"></script>
 <script src="draw-graphs.js"></script>
@@ -20,6 +19,7 @@ video {
   <h2>Remote Videos</h2>
 </div>
 <script>
+const SDPUtils = adapter.sdp;
 let currentCryptoKey;
 function sendTransform(chunk, controller) {
   console.log('ST', chunk.data.byteLength);
@@ -81,7 +81,7 @@ pc2.ontrack = (e) => {
       receiverStreams.readableStream
           .pipeThrough(transform)
           .pipeTo(receiverStreams.writableStream);
-	
+
     show(e.streams[0], true);
 }
 

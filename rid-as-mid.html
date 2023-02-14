@@ -2,7 +2,6 @@
 <head>
 <meta charset="utf-8">
 <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
 <script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
 <script src="test-assert.js"></script>
 <script src="draw-graphs.js"></script>
@@ -27,6 +26,7 @@ video {
   The ?resolution=<i>1080p|720p|360p</i> parameter restricts the getUserMedia resolution.
 </p>
 <script>
+const SDPUtils = adapter.sdp;
 const searchParameters = new URLSearchParams(window.location.search);
 
 const pc1 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});

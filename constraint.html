@@ -2,7 +2,6 @@
 <head>
 <meta charset="utf-8">
 <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-<script src="https://rawgit.com/otalk/sdp/master/sdp.js"></script>
 <script src="https://webrtc.github.io/samples/src/js/third_party/graph.js"></script>
 <script src="test-assert.js"></script>
 <script src="draw-graphs.js"></script>
@@ -20,6 +19,7 @@ video {
   <h2>Remote Videos</h2>
 </div>
 <script>
+const SDPUtils = adapter.sdp;
 const pc1 = new RTCPeerConnection({sdpSemantics: 'plan-b'});
 const pc2 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
