@@ -94,11 +94,18 @@ navigator.mediaDevices.getUserMedia({video})
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0 1 2\r\n' +
       'a=msid-semantic:WMS *\r\n';
+    // Use session-level header extensions to make the SDP shorter.
+    rtpParameters.headerExtensions.forEach(ext => {
+        sdp += SDPUtils.writeExtmap(ext);
+    });
+    rtpParameters.headerExtensions = [];
+
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
         SDPUtils.writeRtcpParameters({
             mux:rtcpParameters.mux,
             reducedSize: rtcpParameters.reducedSize,
         });
+
     sdp += codecs +
         'a=setup:actpass\r\n' +
         'a=mid:' + rids[0] + '\r\n' +
@@ -136,6 +143,19 @@ navigator.mediaDevices.getUserMedia({video})
       SDPUtils.writeIceParameters(ice) +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
+    // Use session-level header extensions to make the SDP shorter.
+    rtpParameters.headerExtensions.forEach(ext => {
+        sdp += SDPUtils.writeExtmap(ext);
+    });
+    rtpParameters.headerExtensions = [];
+    // Re-add headerextensions we filtered.
+    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
+    headerExtensions.forEach(ext => {
+        if (extensionsToFilter.includes(ext.uri)) {
+            sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
+        }
+    });
+
     const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
         SDPUtils.writeRtcpParameters({
             mux:rtcpParameters.mux,
@@ -150,13 +170,6 @@ navigator.mediaDevices.getUserMedia({video})
     sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
     sdp += 'a=mid:' + SDPUtils.getMid(SDPUtils.splitSections(pc1.localDescription.sdp)[1]) + '\r\n';
 
-    // Re-add headerextensions we filtered.
-    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
-    headerExtensions.forEach(ext => {
-        if (extensionsToFilter.includes(ext.uri)) {
-            sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
-        }
-    });
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription({
