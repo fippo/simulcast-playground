@@ -24,6 +24,7 @@ video {
 <p>
   Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec.
   The ?resolution=<i>1080p|720p|360p</i> parameter restricts the getUserMedia resolution.
+  The ?scalabilityMode parameter allows controlling the (codec-specific) scalability modes from <a href="https://w3c.github.io/webrtc-svc/#dependencydiagrams*">WebRTC-SVC</a>.
 </p>
 <script>
 const SDPUtils = adapter.sdp;
@@ -46,11 +47,12 @@ const video = {
   '720p': {width: 1280, height: 720},
   '360p': {width: 640, height: 360},
 }[searchParameters.get('resolution') || '720p'];
+const scalabilityMode = searchParameters.get('scalabilityMode') || undefined;
 navigator.mediaDevices.getUserMedia({video})
 .then((stream) => {
     const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
-        sendEncodings: rids.map(rid => ({rid})),
+        sendEncodings: rids.map(rid => ({rid, scalabilityMode})),
     });
     if (searchParameters.has('codec') && ['vp8', 'h264'].includes(searchParameters.get('codec'))) {
         const codecs = RTCRtpSender.getCapabilities('video').codecs
