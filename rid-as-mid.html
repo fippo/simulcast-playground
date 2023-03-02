@@ -22,9 +22,10 @@ video {
   <h2>Remote Videos</h2>
 </div>
 <p>
-  Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec.
-  The ?resolution=<i>1080p|720p|360p</i> parameter restricts the getUserMedia resolution.
-  The ?scalabilityMode parameter allows controlling the (codec-specific) scalability modes from <a href="https://w3c.github.io/webrtc-svc/#dependencydiagrams*">WebRTC-SVC</a>.
+  Use ?codec=<i>h264|vp8</i>&profile=<i>h264profile</i> in the URL to optionally filter the codec.<br>
+  The ?resolution=<i>1080p|720p|360p</i> parameter restricts the getUserMedia resolution.<br>
+  The ?scalabilityMode parameter allows controlling the (codec-specific) scalability modes from <a href="https://w3c.github.io/webrtc-svc/#dependencydiagrams*">WebRTC-SVC</a>.<br>
+  The ?remb parameter allows disabling transport-cc and falling back to REMB.
 </p>
 <script>
 const SDPUtils = adapter.sdp;
@@ -48,6 +49,7 @@ const video = {
   '360p': {width: 640, height: 360},
 }[searchParameters.get('resolution') || '720p'];
 const scalabilityMode = searchParameters.get('scalabilityMode') || undefined;
+const remb = searchParameters.has('remb');
 navigator.mediaDevices.getUserMedia({video})
 .then((stream) => {
     const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
@@ -74,6 +76,15 @@ navigator.mediaDevices.getUserMedia({video})
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
     const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
+    if (remb) {
+        // Disable transport-cc by filtering both the RTCP feedback and the extension.
+        rtpParameters.codecs.forEach(codec => {
+            codec.rtcpFeedback = codec.rtcpFeedback.filter(fb => fb.type !== 'transport-cc');
+        });
+        rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
+            return ext.uri !== 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01';
+        });
+    }
 
     // The gist of this hack is that rid and mid have the same wire format.
     // Kudos to orphis for this clever hack!
