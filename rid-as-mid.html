@@ -43,6 +43,7 @@ const extensionsToFilter = [
     'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
 ];
 const rids = [0, 1, 2];
+const scaleDown = {0: 4, 1: 2, 2: 1};
 const video = {
   '1080p': {width: 1920, height: 1080},
   '720p': {width: 1280, height: 720},
@@ -54,9 +55,9 @@ navigator.mediaDevices.getUserMedia({video})
 .then((stream) => {
     const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
         streams: [stream],
-        sendEncodings: rids.map(rid => ({rid, scalabilityMode})),
+        sendEncodings: rids.map(rid => ({rid, scalabilityMode, scaleResolutionDownBy: scaleDown[rid]})),
     });
-    if (searchParameters.has('codec') && ['vp8', 'h264'].includes(searchParameters.get('codec'))) {
+    if (searchParameters.has('codec') && ['vp8', 'h264', 'vp9', 'av1'].includes(searchParameters.get('codec'))) {
         const codecs = RTCRtpSender.getCapabilities('video').codecs
             .filter(c => {
                 return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec');
