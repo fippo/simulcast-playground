@@ -31,19 +31,15 @@ video {
 const SDPUtils = adapter.sdp;
 const searchParameters = new URLSearchParams(window.location.search);
 
-const pc1 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
-const pc2 = new RTCPeerConnection({sdpSemantics: 'unified-plan'});
+const pc1 = new RTCPeerConnection();
+const pc2 = new RTCPeerConnection();
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
 pc2.ontrack = (e) => show(e.streams[0], true);
 
-const extensionsToFilter = [
-    'urn:ietf:params:rtp-hdrext:sdes:mid',
-    'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
-    'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
-];
 const rids = [0, 1, 2];
 const scaleDown = {0: 4, 1: 2, 2: 1};
+const streamIds = {0: 'lo', 1: 'mid', 2: 'hi'};
 const video = {
   '1080p': {width: 1920, height: 1080},
   '720p': {width: 1280, height: 720},
@@ -51,6 +47,12 @@ const video = {
 }[searchParameters.get('resolution') || '720p'];
 const scalabilityMode = searchParameters.get('scalabilityMode') || undefined;
 const remb = searchParameters.has('remb');
+const extensionsToFilter = [
+    'urn:ietf:params:rtp-hdrext:sdes:mid',
+    'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
+    'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
+];
+
 navigator.mediaDevices.getUserMedia({video})
 .then((stream) => {
     const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
@@ -96,17 +98,17 @@ navigator.mediaDevices.getUserMedia({video})
     // This tells the other side that the RID packets are actually mids.
     rtpParameters.headerExtensions.push({id: rid.id, uri: 'urn:ietf:params:rtp-hdrext:sdes:mid', direction: 'sendrecv'});
 
-    // Filter rtx as we have no wait to reinterpret rrid. Not doing this makes probing use RTX, its not understood
+    // Filter rtx as we have no way to reinterpret rrid. Not doing this makes probing use RTX, its not understood
     // and ramp-up is slower.
     rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
 
-    // Filter RED as this makes wireshark dumps harder.
+    // Filter RED as this makes wireshark dumps harder to read.
     rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RED');
 
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'actpass') +
       SDPUtils.writeIceParameters(ice) +
-      'a=group:BUNDLE 0 1 2\r\n' +
+      'a=group:BUNDLE ' + rids.join(' ') + '\r\n' +
       'a=msid-semantic:WMS *\r\n';
     // Use session-level header extensions to make the SDP shorter.
     rtpParameters.headerExtensions.forEach(ext => {
@@ -114,24 +116,17 @@ navigator.mediaDevices.getUserMedia({video})
     });
     rtpParameters.headerExtensions = [];
 
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+    const mSection = SDPUtils.writeRtpDescription('video', rtpParameters) +
         SDPUtils.writeRtcpParameters({
-            mux:rtcpParameters.mux,
+            mux: rtcpParameters.mux,
             reducedSize: rtcpParameters.reducedSize,
         });
 
-    sdp += codecs +
-        'a=setup:actpass\r\n' +
-        'a=mid:' + rids[0] + '\r\n' +
-        'a=msid:low low\r\n';
-    sdp += codecs +
-        'a=setup:actpass\r\n' +
-        'a=mid:' + rids[1] + '\r\n' +
-        'a=msid:mid mid\r\n';
-    sdp += codecs +
-        'a=setup:actpass\r\n' +
-        'a=mid:' + rids[2] + '\r\n' +
-        'a=msid:hi hi\r\n';
+    rids.forEach(rid => {
+        sdp += mSection +
+            'a=mid:' + rid + '\r\n' +
+            'a=msid:' + streamIds[rid] + ' ' + streamIds[rid] + '\r\n';
+    });
 
     return Promise.all([
         pc1.setLocalDescription(offer),
@@ -170,14 +165,11 @@ navigator.mediaDevices.getUserMedia({video})
         }
     });
 
-    const codecs = SDPUtils.writeRtpDescription('video', rtpParameters) +
+    sdp += SDPUtils.writeRtpDescription('video', rtpParameters) +
         SDPUtils.writeRtcpParameters({
             mux:rtcpParameters.mux,
             reducedSize: rtcpParameters.reducedSize,
         });
-    sdp += codecs;
-    sdp += 'a=setup:active\r\n';
-
     rids.forEach(rid => {
         sdp += 'a=rid:' + rid + ' recv\r\n';
     });

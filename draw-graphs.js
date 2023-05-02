@@ -83,7 +83,7 @@ async function draw(pc1, pc2) {
         if (lastSendResult && lastSendResult.get(report.id)) {
             const ssrc = report.ssrc;
 
-            // calculate bitrate
+            // Calculate bitrate
             const bitrate = 8000 * (bytes - lastSendResult.get(report.id).bytesSent) /
                 (now - lastSendResult.get(report.id).timestamp);
             if (!bitrateSeries[graphName].has(ssrc)) {
@@ -100,7 +100,7 @@ async function draw(pc1, pc2) {
                 bitrateSeries[graphName].get(ssrc).addPoint(now, bitrate);
             }
 
-            //  calculate framerate.
+            // Calculate framerate.
             const framerate = 1000 * (frames - lastSendResult.get(report.id).framesEncoded) /
                 (now - lastSendResult.get(report.id).timestamp);
             if (!framerateSeries[graphName].has(ssrc)) {
@@ -116,7 +116,7 @@ async function draw(pc1, pc2) {
                 framerateSeries[graphName].get(ssrc).addPoint(now, framerate);
             }
 
-            // calculate qp-per-frame
+            // Calculate qp-per-frame.
             if (report.qpSum) {
                 const qp = (report.qpSum - lastSendResult.get(report.id).qpSum) /
                     (report.framesEncoded - lastSendResult.get(report.id).framesEncoded);
@@ -168,7 +168,7 @@ async function draw(pc1, pc2) {
                 return;
             }
 
-            // calculate bitrate
+            // Calculate bitrate.
             const bitrate = 8000 * (bytes - lastRecvResult.get(report.id).bytesReceived) /
                 (now - lastRecvResult.get(report.id).timestamp);
 
@@ -176,14 +176,14 @@ async function draw(pc1, pc2) {
             bitrateGraphs[graphName].setDataSeries([bitrateSeries[graphName]]);
             bitrateGraphs[graphName].updateEndDate();
 
-            //  calculate framerate.
+            // Calculate framerate.
             const framerate = 1000 * (frames - lastRecvResult.get(report.id).framesDecoded) /
                 (now - lastRecvResult.get(report.id).timestamp);
             framerateSeries[graphName].addPoint(now, framerate);
             framerateGraphs[graphName].setDataSeries([framerateSeries[graphName]]);
             framerateGraphs[graphName].updateEndDate();
 
-            // calculate qp-per-frame
+            // Calculate qp-per-frame.
             if (report.qpSum) {
                 const qp = (report.qpSum - lastRecvResult.get(report.id).qpSum) /
                     (report.framesDecoded - lastRecvResult.get(report.id).framesDecoded);
