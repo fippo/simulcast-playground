@@ -135,7 +135,9 @@ async function draw(pc1, pc2) {
     });
     if (document.getElementById('local_currentData')) {
         document.getElementById('local_currentData').innerText = 'Stream: local\n' + Object.keys(sentKeyframes).sort().map(rid => {
-            return 'rid=' + rid + ': keyframes=' + sentKeyframes[rid] + (encoders[rid] ? ', encoder=' + encoders[rid] : '');
+            return 'rid=' + rid + ': ' +
+                'keyframes=' + sentKeyframes[rid] +
+                (encoders[rid] ? ', encoder=' + encoders[rid] : '');
         }).join('\n');
     }
     bitrateGraphs['local'].setDataSeries(Array.from(bitrateSeries['local'].values()));
@@ -207,6 +209,9 @@ async function draw(pc1, pc2) {
                 }
                 if (report.decoderImplementation) {
                     currentData.innerText += '\ndecoder=' + report.decoderImplementation;
+                }
+                if (report.powerEfficientDecoder !== undefined) {
+                    currentData.innerText += '\npowerEfficient=' + report.powerEfficientDecoder;
                 }
             }
         }
