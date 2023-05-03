@@ -160,6 +160,9 @@ navigator.mediaDevices.getUserMedia({video})
     // Re-add headerextensions we filtered.
     const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
     headerExtensions.forEach(ext => {
+        if (remb && ext.uri === 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01') {
+            return;
+        }
         if (extensionsToFilter.includes(ext.uri)) {
             sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
         }
