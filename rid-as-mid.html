@@ -62,10 +62,10 @@ navigator.mediaDevices.getUserMedia({video})
     if (searchParameters.has('codec') && ['vp8', 'h264', 'vp9', 'av1'].includes(searchParameters.get('codec'))) {
         const codecs = RTCRtpSender.getCapabilities('video').codecs
             .filter(c => {
-                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec');
+                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec') || c.mimeType.toLowerCase() === 'video/rtx';
             })
             .filter(c => {
-                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile'));
+                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile')) || c.mimeType.toLowerCase() === 'video/rtx';
             });
         console.log('restricted codecs', codecs)
         transceiver.setCodecPreferences(codecs);
@@ -100,7 +100,7 @@ navigator.mediaDevices.getUserMedia({video})
 
     // Filter rtx as we have no way to reinterpret rrid. Not doing this makes probing use RTX, its not understood
     // and ramp-up is slower.
-    rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
+    //rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RTX');
 
     // Filter RED as this makes wireshark dumps harder to read.
     rtpParameters.codecs = rtpParameters.codecs.filter(c => c.name.toUpperCase() !== 'RED');
