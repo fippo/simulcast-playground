@@ -31,55 +31,18 @@ video {
 const SDPUtils = adapter.sdp;
 const searchParameters = new URLSearchParams(window.location.search);
 
-const pc1 = new RTCPeerConnection();
-const pc2 = new RTCPeerConnection();
-pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
-pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
-pc2.ontrack = (e) => show(e.streams[0], true);
-
-const rids = [0, 1, 2];
-const scaleDown = {0: 4, 1: 2, 2: 1};
-const streamIds = {0: 'lo', 1: 'mid', 2: 'hi'};
-const video = {
-  '1080p': {width: 1920, height: 1080},
-  '720p': {width: 1280, height: 720},
-  '360p': {width: 640, height: 360},
-}[searchParameters.get('resolution') || '720p'];
-const scalabilityMode = searchParameters.get('scalabilityMode') || undefined;
-const remb = searchParameters.has('remb');
 const extensionsToFilter = [
     'urn:ietf:params:rtp-hdrext:sdes:mid',
     'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
     'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
 ];
-
-navigator.mediaDevices.getUserMedia({video})
-.then((stream) => {
-    const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
-        streams: [stream],
-        sendEncodings: rids.map(rid => ({rid, scalabilityMode, scaleResolutionDownBy: scaleDown[rid]})),
-    });
-    if (searchParameters.has('codec') && ['vp8', 'h264', 'vp9', 'av1'].includes(searchParameters.get('codec'))) {
-        const codecs = RTCRtpSender.getCapabilities('video').codecs
-            .filter(c => {
-                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec');
-            })
-            .filter(c => {
-                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile'));
-            });
-        console.log('restricted codecs', codecs)
-        transceiver.setCodecPreferences(codecs);
-    }
-    show(stream, false);
-    return pc1.createOffer();
-})
-.then((offer) => {
-    const sections = SDPUtils.splitSections(offer.sdp);
+function splitLayers(offer, {disableTransportCC, streamIds, rids}) {
+    const sections = SDPUtils.splitSections(offer);
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
     const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
-    if (remb) {
+    if (disableTransportCC) {
         // Disable transport-cc by filtering both the RTCP feedback and the extension.
         rtpParameters.codecs.forEach(codec => {
             codec.rtcpFeedback = codec.rtcpFeedback.filter(fb => fb.type !== 'transport-cc');
@@ -127,18 +90,11 @@ navigator.mediaDevices.getUserMedia({video})
             'a=mid:' + rid + '\r\n' +
             'a=msid:' + streamIds[rid] + ' ' + streamIds[rid] + '\r\n';
     });
+    return sdp;
+}
 
-    return Promise.all([
-        pc1.setLocalDescription(offer),
-        pc2.setRemoteDescription({
-            type: 'offer',
-            sdp,
-        }),
-    ]);
-})
-.then(() => pc2.createAnswer())
-.then(answer => {
-    const sections = SDPUtils.splitSections(answer.sdp);
+function mergeLayers(answer, offer, {disableTransportCC, rids}) {
+    const sections = SDPUtils.splitSections(answer);
     const dtls = SDPUtils.getDtlsParameters(sections[1], sections[0]);
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
@@ -158,7 +114,7 @@ navigator.mediaDevices.getUserMedia({video})
     });
     rtpParameters.headerExtensions = [];
     // Re-add headerextensions we filtered.
-    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(pc1.localDescription.sdp)[1]).headerExtensions;
+    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(offer)[1]).headerExtensions;
     headerExtensions.forEach(ext => {
         if (remb && ext.uri === 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01') {
             return;
@@ -177,13 +133,72 @@ navigator.mediaDevices.getUserMedia({video})
         sdp += 'a=rid:' + rid + ' recv\r\n';
     });
     sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
-    sdp += 'a=mid:' + SDPUtils.getMid(SDPUtils.splitSections(pc1.localDescription.sdp)[1]) + '\r\n';
+    sdp += 'a=mid:' + SDPUtils.getMid(SDPUtils.splitSections(offer)[1]) + '\r\n';
+    return sdp;
+}
+
+const pc1 = new RTCPeerConnection();
+const pc2 = new RTCPeerConnection();
+pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
+pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
+pc2.ontrack = (e) => show(e.streams[0], true);
+
+const scaleDown = {0: 4, 1: 2, 2: 1};
+const rids = [0, 1, 2];
+const streamIds = {0: 'lo', 1: 'mid', 2: 'hi'};
+const video = {
+  '1080p': {width: 1920, height: 1080},
+  '720p': {width: 1280, height: 720},
+  '360p': {width: 640, height: 360},
+}[searchParameters.get('resolution') || '720p'];
+const scalabilityMode = searchParameters.get('scalabilityMode') || undefined;
+const remb = searchParameters.has('remb');
+
+navigator.mediaDevices.getUserMedia({video})
+.then((stream) => {
+    const transceiver = pc1.addTransceiver(stream.getVideoTracks()[0], {
+        streams: [stream],
+        sendEncodings: rids.map(rid => ({rid, scalabilityMode, scaleResolutionDownBy: scaleDown[rid]})),
+    });
+    if (searchParameters.has('codec') && ['vp8', 'h264', 'vp9', 'av1'].includes(searchParameters.get('codec'))) {
+        const codecs = RTCRtpSender.getCapabilities('video').codecs
+            .filter(c => {
+                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec') || c.mimeType.toLowerCase() === 'video/rtx';
+            })
+            .filter(c => {
+                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile')) || c.mimeType.toLowerCase() === 'video/rtx';
+            });
+        console.log('restricted codecs', codecs)
+        transceiver.setCodecPreferences(codecs);
+    }
+    show(stream, false);
+    return pc1.createOffer();
+})
+.then((offer) => {
+    return Promise.all([
+        pc1.setLocalDescription(offer),
+        pc2.setRemoteDescription({
+            type: 'offer',
+            sdp: splitLayers(offer.sdp, {
+                disableTransportCC: remb,
+                rids,
+                streamIds,
+            }),
+        }),
+    ]);
+})
+.then(() => pc2.createAnswer())
+.then(answer => {
 
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription({
             type: 'answer',
-            sdp
+            sdp: mergeLayers(answer.sdp, pc1.localDescription.sdp, {
+                disableTransportCC: remb,
+                rids,
+                streamIds,
+            }),
         }),
     ]);
 })
