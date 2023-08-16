@@ -38,9 +38,9 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
     const sender = pc1.addTrack(stream.getTracks()[0], stream);
     const bitrates = sessionStorage.bitrates ? JSON.parse(sessionStorage.bitrates) : [2500000, 500000, 150000];
     sender.setParameters({encodings: [
-        {rid: "hi", maxBitrate: bitrates[0]},
-        {rid: "mid", maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
-        {rid: "lo", maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
+        {rid: 'hi', maxBitrate: bitrates[0]},
+        {rid: 'mid', maxBitrate: bitrates[1], scaleResolutionDownBy: 2},
+        {rid: 'low', maxBitrate: bitrates[2], scaleResolutionDownBy: 4},
     ]});
     return pc1.createOffer();
 })

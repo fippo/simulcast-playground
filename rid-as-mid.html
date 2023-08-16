@@ -40,7 +40,7 @@ pc2.ontrack = (e) => show(e.streams[0], true);
 
 const scaleDown = {0: 4, 1: 2, 2: 1};
 const rids = [0, 1, 2];
-const streamIds = {0: 'lo', 1: 'mid', 2: 'hi'};
+const streamIds = {0: 'low', 1: 'mid', 2: 'hi'};
 const video = {
   '1080p': {width: 1920, height: 1080},
   '720p': {width: 1280, height: 720},
@@ -84,7 +84,15 @@ navigator.mediaDevices.getUserMedia({video})
 })
 .then(() => pc2.createAnswer())
 .then(answer => {
-
+    if (adapter.browserDetails.browser === 'firefox') {
+        ssrc2track = [];
+        SDPUtils.matchPrefix(pc1.localDescription.sdp, 'a=ssrc-group:')
+            .map(line => SDPUtils.parseSsrcGroup(line))
+            .forEach(group => {
+                if (group.semantics != 'FID') return;
+                ssrc2track.push(group.ssrcs[0]);
+            });
+    }
     return Promise.all([
         pc2.setLocalDescription(answer),
         pc1.setRemoteDescription({
