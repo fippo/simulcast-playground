@@ -67,23 +67,20 @@ navigator.mediaDevices.getUserMedia({video})
         transceiver.setCodecPreferences(codecs);
     }
     show(stream, false);
-    return pc1.createOffer();
+    return pc1.setLocalDescription();
 })
-.then((offer) => {
-    return Promise.all([
-        pc1.setLocalDescription(offer),
-        pc2.setRemoteDescription({
-            type: 'offer',
-            sdp: splitLayers(offer.sdp, {
-                disableTransportCC: remb,
-                rids,
-                streamIds,
-            }),
+.then(() => {
+    return pc2.setRemoteDescription({
+        type: 'offer',
+        sdp: splitLayers(pc1.localDescription.sdp, {
+            disableTransportCC: remb,
+            rids,
+            streamIds,
         }),
-    ]);
+    });
 })
-.then(() => pc2.createAnswer())
-.then(answer => {
+.then(() => pc2.setLocalDescription())
+.then(() => {
     if (adapter.browserDetails.browser === 'firefox') {
         ssrc2track = [];
         SDPUtils.matchPrefix(pc1.localDescription.sdp, 'a=ssrc-group:')
@@ -93,17 +90,14 @@ navigator.mediaDevices.getUserMedia({video})
                 ssrc2track.push(group.ssrcs[0]);
             });
     }
-    return Promise.all([
-        pc2.setLocalDescription(answer),
-        pc1.setRemoteDescription({
-            type: 'answer',
-            sdp: mergeLayers(answer.sdp, pc1.localDescription.sdp, {
-                disableTransportCC: remb,
-                rids,
-                streamIds,
-            }),
+    return pc1.setRemoteDescription({
+        type: 'answer',
+        sdp: mergeLayers(pc2.localDescription.sdp, pc1.localDescription.sdp, {
+            disableTransportCC: remb,
+            rids,
+            streamIds,
         }),
-    ]);
+    });
 })
 .then(() => {
     window.setInterval(() => {

@@ -106,34 +106,28 @@ navigator.mediaDevices.getUserMedia({video})
         .pipeTo(senderStreams.writable);
 
     show(stream, false);
-    return pc1.createOffer();
+    return pc1.setLocalDescription();
 })
-.then((offer) => {
-  return Promise.all([
-        pc1.setLocalDescription(offer),
-        pc2.setRemoteDescription({
-            type: 'offer',
-            sdp: splitLayers(offer.sdp, {
-                disableTransportCC: remb,
-                rids,
-                streamIds,
-            }),
+.then(() => {
+    return pc2.setRemoteDescription({
+        type: 'offer',
+        sdp: splitLayers(pc1.localDescription.sdp, {
+            disableTransportCC: remb,
+            rids,
+            streamIds,
         }),
-    ]);
+    });
 })
-.then(() => pc2.createAnswer())
-.then(answer => {
-  return Promise.all([
-        pc2.setLocalDescription(answer),
-        pc1.setRemoteDescription({
-            type: 'answer',
-            sdp: mergeLayers(answer.sdp, pc1.localDescription.sdp, {
-                disableTransportCC: remb,
-                rids,
-                streamIds,
-            }),
+.then(() => pc2.setLocalDescription())
+.then(() => {
+    return pc1.setRemoteDescription({
+        type: 'answer',
+        sdp: mergeLayers(pc2.localDescription.sdp, pc1.localDescription.sdp, {
+            disableTransportCC: remb,
+            rids,
+            streamIds,
         }),
-    ]);
+    });
 })
 .then(() => {
     window.setInterval(() => {
