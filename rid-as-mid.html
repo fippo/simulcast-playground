@@ -35,7 +35,20 @@ const pc1 = new RTCPeerConnection();
 const pc2 = new RTCPeerConnection();
 pc1.onicecandidate = (e) => pc2.addIceCandidate(e.candidate);
 pc2.onicecandidate = (e) => pc1.addIceCandidate(e.candidate);
-pc2.ontrack = (e) => show(e.streams[0], true);
+pc2.ontrack = (e) => {
+    if (searchParameters.has('codec') && ['vp8', 'h264', 'vp9', 'av1'].includes(searchParameters.get('codec'))) {
+        const codecs = RTCRtpSender.getCapabilities('video').codecs
+            .filter(c => {
+                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec') || c.mimeType.toLowerCase() === 'video/rtx';
+            })
+            .filter(c => {
+                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile')) || c.mimeType.toLowerCase() === 'video/rtx';
+            });
+        console.log('restricted codecs', codecs)
+        e.transceiver.setCodecPreferences(codecs);
+    }
+    show(e.streams[0], true);
+}
 
 const searchParameters = new URLSearchParams(window.location.search);
 const scaleDown = {0: 4, 1: 2, 2: 1};
@@ -55,17 +68,6 @@ navigator.mediaDevices.getUserMedia({video})
         streams: [stream],
         sendEncodings: rids.map(rid => ({rid, scalabilityMode, scaleResolutionDownBy: scaleDown[rid]})),
     });
-    if (searchParameters.has('codec') && ['vp8', 'h264', 'vp9', 'av1'].includes(searchParameters.get('codec'))) {
-        const codecs = RTCRtpSender.getCapabilities('video').codecs
-            .filter(c => {
-                return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec') || c.mimeType.toLowerCase() === 'video/rtx';
-            })
-            .filter(c => {
-                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile')) || c.mimeType.toLowerCase() === 'video/rtx';
-            });
-        console.log('restricted codecs', codecs)
-        transceiver.setCodecPreferences(codecs);
-    }
     show(stream, false);
     return pc1.setLocalDescription();
 })
