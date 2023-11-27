@@ -59,7 +59,9 @@ const video = {
   '720p': {width: 1280, height: 720},
   '360p': {width: 640, height: 360},
 }[searchParameters.get('resolution') || '720p'];
-const scalabilityMode = searchParameters.get('scalabilityMode') || undefined;
+const scalabilityMode = searchParameters.get('scalabilityMode') || {
+    vp9: 'L1T2', // VP9 requires scalabilityMode to enable simulcast for backward compat reasons.
+}[searchParameters.get('codec')];
 const remb = searchParameters.has('remb');
 
 navigator.mediaDevices.getUserMedia({video})
