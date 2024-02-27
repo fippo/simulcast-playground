@@ -42,7 +42,7 @@ pc2.ontrack = (e) => {
                 return c.mimeType.toLowerCase() === 'video/' + searchParameters.get('codec') || c.mimeType.toLowerCase() === 'video/rtx';
             })
             .filter(c => {
-                return !searchParameters.has('profile') || c.sdpFmtpLine.includes(searchParameters.get('profile')) || c.mimeType.toLowerCase() === 'video/rtx';
+                return !searchParameters.has('profile') || (c.sdpFmtpLine || '').includes(searchParameters.get('profile')) || c.mimeType.toLowerCase() === 'video/rtx';
             });
         console.log('restricted codecs', codecs)
         e.transceiver.setCodecPreferences(codecs);
