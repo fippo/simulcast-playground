@@ -70,6 +70,17 @@ navigator.mediaDevices.getUserMedia({video})
         streams: [stream],
         sendEncodings: rids.map(rid => ({rid, scalabilityMode, scaleResolutionDownBy: scaleDown[rid]})),
     });
+    if (searchParameters.has('gfd00') && ('getHeaderExtensionsToNegotiate' in RTCRtpTransceiver.prototype)) {
+        const ext = transceiver.getHeaderExtensionsToNegotiate();
+        ext.forEach(e => {
+            if (e.uri === 'http://www.webrtc.org/experiments/rtp-hdrext/generic-frame-descriptor-00') {
+                e.direction = 'sendrecv';
+            } else if (e.uri === 'https://aomediacodec.github.io/av1-rtp-spec/#dependency-descriptor-rtp-header-extension') {
+                e.direction = 'stopped';
+            }
+        });
+        transceiver.setHeaderExtensionsToNegotiate(ext);
+    }
     show(stream, false);
     return pc1.setLocalDescription();
 })
