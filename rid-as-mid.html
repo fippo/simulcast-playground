@@ -51,7 +51,7 @@ pc2.ontrack = (e) => {
 }
 
 const searchParameters = new URLSearchParams(window.location.search);
-const scaleDown = {0: 4, 1: 2, 2: 1};
+const scaleDown = (searchParameters.get('scaleDown') || '4/2/1').split('/');
 const rids = [0, 1, 2];
 const streamIds = {0: 'low', 1: 'mid', 2: 'hi'};
 const video = {
@@ -61,6 +61,7 @@ const video = {
 }[searchParameters.get('resolution') || '720p'];
 const scalabilityMode = searchParameters.get('scalabilityMode') || {
     vp9: 'L1T2', // VP9 requires scalabilityMode to enable simulcast for backward compat reasons.
+    av1: 'L1T2', // AV1 requires scalabilityMode too?
 }[searchParameters.get('codec')];
 const remb = searchParameters.has('remb');
 
