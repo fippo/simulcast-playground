@@ -38,6 +38,7 @@ function splitLayers(offer, {disableTransportCC, streamIds, rids}) {
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'actpass') +
       SDPUtils.writeIceParameters(ice) +
+      'a=extmap-allow-mixed\r\n' +
       'a=group:BUNDLE ' + rids.join(' ') + '\r\n' +
       'a=msid-semantic:WMS *\r\n';
     // Use session-level header extensions to make the SDP shorter.
@@ -73,6 +74,7 @@ function mergeLayers(answer, offer, {disableTransportCC, rids}) {
     let sdp = SDPUtils.writeSessionBoilerplate() +
       SDPUtils.writeDtlsParameters(dtls, 'active') +
       SDPUtils.writeIceParameters(ice) +
+      'a=extmap-allow-mixed\r\n' +
       'a=group:BUNDLE 0\r\n' +
       'a=msid-semantic:WMS *\r\n';
     // Use session-level header extensions to make the SDP shorter.
