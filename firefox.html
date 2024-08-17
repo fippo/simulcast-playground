@@ -12,6 +12,7 @@ video {
 </style>
 </head>
 <body>
+<h1>NOTE: this is deprecated. See the <a href="rid-as-mid.html">spec way</a></h1>
 <div id="local">
   <h2>Local Video</h2>
 </div>
@@ -86,6 +87,7 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
             ssrcs[4] + '\r\n' +
             ssrcs[5] + '\r\n' +
             fidGroups[2] + '\r\n';
+        ssrc2track = fidGroups.map(line => (line.split(' ')[1].split(':')[0] >>> 0));
     } else {
         sdp += codecs +
             'a=mid:' + midPrefix + '0\r\n' +
@@ -99,8 +101,8 @@ navigator.mediaDevices.getUserMedia({video: {wіdth: 1280, height: 720}})
             'a=mid:' + midPrefix + '2\r\n' +
             'a=msid:hi hi\r\n' +
             ssrcs[2] + '\r\n';
+        ssrc2track = ssrcs.map(line => (line.split(' ')[0].split(':')[1] >>> 0));
     }
-    ssrc2track = ssrcs.map(line => (line.split(' ')[0].split(':')[1] >>> 0));
     return Promise.all([
         pc1.setLocalDescription(offer),
         pc2.setRemoteDescription({type: 'offer', sdp})
