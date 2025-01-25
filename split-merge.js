@@ -67,6 +67,7 @@ function mergeLayers(answer, offer, {disableTransportCC, rids}) {
     const ice = SDPUtils.getIceParameters(sections[1], sections[0]);
     const rtpParameters = SDPUtils.parseRtpParameters(sections[1]);
     const rtcpParameters = SDPUtils.parseRtcpParameters(sections[1]);
+    const mid = SDPUtils.getMid(sections[1]);
     // Avoid duplicating the mid extension even though Chrome does not care (boo!)
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.filter(ext => {
         return !extensionsToFilter.includes(ext.uri);
@@ -75,24 +76,16 @@ function mergeLayers(answer, offer, {disableTransportCC, rids}) {
       SDPUtils.writeDtlsParameters(dtls, 'active') +
       SDPUtils.writeIceParameters(ice) +
       'a=extmap-allow-mixed\r\n' +
-      'a=group:BUNDLE 0\r\n' +
-      'a=msid-semantic:WMS *\r\n';
-    // Use session-level header extensions to make the SDP shorter.
-    rtpParameters.headerExtensions.forEach(ext => {
-        sdp += SDPUtils.writeExtmap(ext);
-    });
-    rtpParameters.headerExtensions = [];
-    // Re-add headerextensions we filtered.
-    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(offer)[1]).headerExtensions;
-    headerExtensions.forEach(ext => {
-        if (remb && ext.uri === 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01') {
-            return;
-        }
-        if (extensionsToFilter.includes(ext.uri)) {
-            sdp += 'a=extmap:' + ext.id + ' ' + ext.uri + '\r\n';
-        }
-    });
-
+      'a=group:BUNDLE ' + mid + '\r\n';
+    // Re-add headerextensions we filtered from the local description.
+    const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(offer)[1]).headerExtensions
+        .filter(ext => {
+            if (remb && ext.uri === 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01') {
+                return false;
+            }
+            return extensionsToFilter.includes(ext.uri);
+        });
+    rtpParameters.headerExtensions = rtpParameters.headerExtensions.concat(headerExtensions);
     sdp += SDPUtils.writeRtpDescription('video', rtpParameters) +
         SDPUtils.writeRtcpParameters({
             mux:rtcpParameters.mux,
@@ -102,6 +95,6 @@ function mergeLayers(answer, offer, {disableTransportCC, rids}) {
         sdp += 'a=rid:' + rid + ' recv\r\n';
     });
     sdp += 'a=simulcast:recv ' + rids.join(';') + '\r\n';
-    sdp += 'a=mid:' + SDPUtils.getMid(SDPUtils.splitSections(offer)[1]) + '\r\n';
+    sdp += 'a=mid:' + mid + '\r\n';
     return sdp;
 }
