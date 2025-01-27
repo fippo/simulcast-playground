@@ -85,6 +85,12 @@ function mergeLayers(answer, offer, {disableTransportCC, rids}) {
             }
             return extensionsToFilter.includes(ext.uri);
         });
+    // Change the direction (only implemented in Firefox)
+    headerExtensions.forEach(extension => {
+        if (extension.direction === 'sendonly') {
+            extension.direction = 'recvonly';
+        }
+    });
     rtpParameters.headerExtensions = rtpParameters.headerExtensions.concat(headerExtensions);
     sdp += SDPUtils.writeRtpDescription('video', rtpParameters) +
         SDPUtils.writeRtcpParameters({
