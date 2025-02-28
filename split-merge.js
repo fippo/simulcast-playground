@@ -80,7 +80,7 @@ function mergeLayers(answer, offer, {disableTransportCC, rids}) {
     // Re-add headerextensions we filtered from the local description.
     const headerExtensions = SDPUtils.parseRtpParameters(SDPUtils.splitSections(offer)[1]).headerExtensions
         .filter(ext => {
-            if (remb && ext.uri === 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01') {
+            if (disableTransportCC && ext.uri === 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01') {
                 return false;
             }
             return extensionsToFilter.includes(ext.uri);
